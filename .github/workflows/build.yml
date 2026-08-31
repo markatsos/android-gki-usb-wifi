@@ -46,19 +46,32 @@ jobs:
         run: |
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           make LLVM=1 ARCH=arm64 O=out gki_defconfig
+
+          # Πρώτο πέρασμα: βάση (wireless stack + USB + off BTF)
           ./scripts/config --file out/.config \
             -e WLAN \
+            -e USB_SUPPORT \
+            -e USB \
             -m CFG80211 \
             -m MAC80211 \
             -e WLAN_VENDOR_MEDIATEK \
-            -m MT76x2U
+            -d DEBUG_INFO_BTF
           make LLVM=1 ARCH=arm64 O=out olddefconfig
+
+          # Δεύτερο πέρασμα: τώρα που οι εξαρτήσεις είναι σταθερές
+          ./scripts/config --file out/.config \
+            -m MT76_CORE -m MT76_USB \
+            -m MT76x02_LIB -m MT76x02_USB \
+            -m MT76x2_COMMON -m MT76x2U
+          make LLVM=1 ARCH=arm64 O=out olddefconfig
+
           echo "--- result ---"
-          grep -E "CONFIG_(WLAN=|CFG80211=|MAC80211=|MT76)" out/.config 
-          echo "--- deps check ---"
-          grep -E "^CONFIG_USB=|^CONFIG_USB_SUPPORT=|^CONFIG_WLAN_VENDOR_MEDIATEK=" out/.config || echo "USB/MTK missing"
-          echo "--- mt76 attempt ---"
-          grep -c "MT76" out/.config
+          grep -E "CONFIG_(CFG80211=|MAC80211=|WLAN=|USB=|DEBUG_INFO_BTF)" out/.config || true
+          grep "MT76" out/.config || true
+
+          echo "--- Kconfig requirements for MT76x2U ---"
+          find drivers/net/wireless/mediatek/mt76 -name Kconfig \
+            -exec sh -c 'echo "== $1"; cat "$1"' _ {} \; || true
 
       - name: Add swap
         run: |
@@ -76,12 +89,16 @@ jobs:
           make LLVM=1 ARCH=arm64 O=out -j$(nproc)
 
       - name: Collect modules
+        if: always()
         run: |
           mkdir -p ko
-          find ks/out -name "mac80211.ko" -o -name "mt76*.ko" | xargs -I{} cp {} ko/
+          find ks/out \( -name "mac80211.ko" -o -name "mt76*.ko" -o -name "cfg80211.ko" \) \
+            -exec cp {} ko/ \; || true
+          cp ks/out/Module.symvers ko/ 2>/dev/null || true
           ls -la ko/
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: mt76-modules
           path: ko/
