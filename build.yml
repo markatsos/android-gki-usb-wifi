@@ -1,0 +1,64 @@
+name: Build mt76 for Teclast P30T
+on: workflow_dispatch
+
+env:
+  KCOMMIT: 4ea0fcb5d1308f2f5a5dec0a3a5c8f1b261e00c7
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          df -h
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
+            lz4 cpio kmod git curl zip
+
+      - name: Fetch kernel source (exact commit)
+        run: |
+          mkdir -p ks
+          curl -sSL "https://android.googlesource.com/kernel/common/+archive/${KCOMMIT}.tar.gz" \
+            | tar -xz -C ks
+          ls ks/Makefile && head -5 ks/Makefile
+
+      - name: Fetch Android Clang r450784e
+        run: |
+          mkdir -p clang
+          curl -sSL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r450784e.tar.gz" \
+            | tar -xz -C clang
+          clang/bin/clang --version
+
+      - name: Configure
+        working-directory: ks
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          make LLVM=1 ARCH=arm64 O=out gki_defconfig
+          ./scripts/config --file out/.config \
+            -e WLAN_VENDOR_MEDIATEK \
+            -m MAC80211 -m MT76_CORE -m MT76_USB \
+            -m MT76x02_LIB -m MT76x02_USB \
+            -m MT76x2_COMMON -m MT76x2U
+          make LLVM=1 ARCH=arm64 O=out olddefconfig
+          grep -E "MAC80211=|MT76" out/.config
+
+      - name: Build
+        working-directory: ks
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          make LLVM=1 ARCH=arm64 O=out -j$(nproc)
+
+      - name: Collect modules
+        run: |
+          mkdir -p ko
+          find ks/out -name "mac80211.ko" -o -name "mt76*.ko" | xargs -I{} cp {} ko/
+          ls -la ko/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mt76-modules
+          path: ko/
