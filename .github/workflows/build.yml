@@ -45,33 +45,26 @@ jobs:
         working-directory: ks
         run: |
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+
+          cat >> arch/arm64/configs/gki_defconfig <<'EOF'
+          CONFIG_WLAN=y
+          CONFIG_CFG80211=m
+          CONFIG_MAC80211=m
+          CONFIG_WLAN_VENDOR_MEDIATEK=y
+          CONFIG_MT76_CORE=m
+          CONFIG_MT76_USB=m
+          CONFIG_MT76x02_LIB=m
+          CONFIG_MT76x02_USB=m
+          CONFIG_MT76x2_COMMON=m
+          CONFIG_MT76x2U=m
+          EOF
+
           make LLVM=1 ARCH=arm64 O=out gki_defconfig
-
-          # Πρώτο πέρασμα: βάση (wireless stack + USB + off BTF)
-          ./scripts/config --file out/.config \
-            -e WLAN \
-            -e USB_SUPPORT \
-            -e USB \
-            -m CFG80211 \
-            -m MAC80211 \
-            -e WLAN_VENDOR_MEDIATEK \
-            -d DEBUG_INFO_BTF
-          make LLVM=1 ARCH=arm64 O=out olddefconfig
-
-          # Δεύτερο πέρασμα: τώρα που οι εξαρτήσεις είναι σταθερές
-          ./scripts/config --file out/.config \
-            -m MT76_CORE -m MT76_USB \
-            -m MT76x02_LIB -m MT76x02_USB \
-            -m MT76x2_COMMON -m MT76x2U
+          ./scripts/config --file out/.config -d DEBUG_INFO_BTF
           make LLVM=1 ARCH=arm64 O=out olddefconfig
 
           echo "--- result ---"
-          grep -E "CONFIG_(CFG80211=|MAC80211=|WLAN=|USB=|DEBUG_INFO_BTF)" out/.config || true
-          grep "MT76" out/.config || true
-
-          echo "--- Kconfig requirements for MT76x2U ---"
-          find drivers/net/wireless/mediatek/mt76 -name Kconfig \
-            -exec sh -c 'echo "== $1"; cat "$1"' _ {} \; || true
+          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76)" out/.config || echo "MT76 STILL MISSING"
 
       - name: Add swap
         run: |
@@ -95,6 +88,7 @@ jobs:
           find ks/out \( -name "mac80211.ko" -o -name "mt76*.ko" -o -name "cfg80211.ko" \) \
             -exec cp {} ko/ \; || true
           cp ks/out/Module.symvers ko/ 2>/dev/null || true
+          echo "--- collected ---"
           ls -la ko/
 
       - uses: actions/upload-artifact@v4
