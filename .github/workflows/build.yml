@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
-            lz4 cpio kmod git curl zip
+            lz4 cpio kmod git curl zip file
 
       - name: Fetch kernel source (exact commit)
         run: |
@@ -29,8 +29,16 @@ jobs:
       - name: Fetch Android Clang r450784e
         run: |
           mkdir -p clang
-          curl -sSL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r450784e.tar.gz" \
-            | tar -xz -C clang
+          for BR in android13-release android14-release main master; do
+            echo "Trying branch: $BR"
+            URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/$BR/clang-r450784e.tar.gz"
+            if curl -sSL "$URL" -o c.tar.gz && file c.tar.gz | grep -q gzip; then
+              echo "OK from $BR"
+              tar -xzf c.tar.gz -C clang
+              break
+            fi
+            rm -f c.tar.gz
+          done
           clang/bin/clang --version
 
       - name: Configure
