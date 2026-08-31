@@ -56,6 +56,15 @@ jobs:
           echo "--- result ---"
           grep -E "CONFIG_(WLAN=|CFG80211=|MAC80211=|MT76)" out/.config || echo "NOTHING FOUND"
 
+      - name: Add swap
+        run: |
+          sudo fallocate -l 24G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+          df -h
+
       - name: Build
         working-directory: ks
         run: |
