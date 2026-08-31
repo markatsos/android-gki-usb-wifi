@@ -54,16 +54,20 @@ jobs:
             -m MT76x2U
           make LLVM=1 ARCH=arm64 O=out olddefconfig
           echo "--- result ---"
-          grep -E "CONFIG_(WLAN=|CFG80211=|MAC80211=|MT76)" out/.config || echo "NOTHING FOUND"
+          grep -E "CONFIG_(WLAN=|CFG80211=|MAC80211=|MT76)" out/.config 
+          echo "--- deps check ---"
+          grep -E "^CONFIG_USB=|^CONFIG_USB_SUPPORT=|^CONFIG_WLAN_VENDOR_MEDIATEK=" out/.config || echo "USB/MTK missing"
+          echo "--- mt76 attempt ---"
+          grep -c "MT76" out/.config
 
       - name: Add swap
         run: |
-          sudo fallocate -l 24G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo swapoff -a || true
+          sudo fallocate -l 24G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
           free -h
-          df -h
 
       - name: Build
         working-directory: ks
