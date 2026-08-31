@@ -47,12 +47,14 @@ jobs:
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           make LLVM=1 ARCH=arm64 O=out gki_defconfig
           ./scripts/config --file out/.config \
+            -e WLAN \
+            -m CFG80211 \
+            -m MAC80211 \
             -e WLAN_VENDOR_MEDIATEK \
-            -m MAC80211 -m MT76_CORE -m MT76_USB \
-            -m MT76x02_LIB -m MT76x02_USB \
-            -m MT76x2_COMMON -m MT76x2U
+            -m MT76x2U
           make LLVM=1 ARCH=arm64 O=out olddefconfig
-          grep -E "MAC80211=|MT76" out/.config
+          echo "--- result ---"
+          grep -E "CONFIG_(WLAN=|CFG80211=|MAC80211=|MT76)" out/.config || echo "NOTHING FOUND"
 
       - name: Build
         working-directory: ks
