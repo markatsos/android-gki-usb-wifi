@@ -1,0 +1,193 @@
+name: Build Wi-Fi modules (parametrized)
+
+# Fill these from your device-profile.txt (produced by scripts/detect.sh).
+# Defaults are the known-good Teclast P30T / UMS9230 reference values, so on
+# that device you can just press Run with no changes.
+on:
+  workflow_dispatch:
+    inputs:
+      kcommit:
+        description: "ACK commit (COMMIT_SHORT or full hash from device-profile.txt)"
+        required: true
+        default: "4ea0fcb5d1308f2f5a5dec0a3a5c8f1b261e00c7"
+      clang_ver:
+        description: "Android Clang version (e.g. clang-r450784e)"
+        required: true
+        default: "clang-r450784e"
+      btf:
+        description: "Keep CONFIG_DEBUG_INFO_BTF? (y = device has BTF=y)"
+        required: true
+        default: "y"
+      lto:
+        description: "LTO mode to match device: full | thin | none"
+        required: true
+        default: "full"
+      driver:
+        description: "Target driver: mt76x2u | mt76x0u | rt2800usb | ath9k_htc"
+        required: true
+        default: "mt76x2u"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Show inputs
+        run: |
+          echo "commit  = ${{ github.event.inputs.kcommit }}"
+          echo "clang   = ${{ github.event.inputs.clang_ver }}"
+          echo "btf     = ${{ github.event.inputs.btf }}"
+          echo "lto     = ${{ github.event.inputs.lto }}"
+          echo "driver  = ${{ github.event.inputs.driver }}"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          df -h
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
+            lz4 cpio kmod git curl zip file dwarves
+          pahole --version
+
+      - name: Verify commit is public
+        run: |
+          H="${{ github.event.inputs.kcommit }}"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://android.googlesource.com/kernel/common/+/$H")
+          echo "gitiles HTTP $CODE for $H"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Commit $H is not public on ACK. You need matching vendor source; this workflow can't fetch it."
+            exit 1
+          fi
+
+      - name: Fetch kernel source (exact commit)
+        run: |
+          mkdir -p ks
+          curl -sSL "https://android.googlesource.com/kernel/common/+archive/${{ github.event.inputs.kcommit }}.tar.gz" \
+            | tar -xz -C ks
+          ls ks/Makefile && head -3 ks/Makefile
+
+      - name: Fetch Android Clang
+        run: |
+          mkdir -p clang
+          CV="${{ github.event.inputs.clang_ver }}"
+          got=0
+          for BR in android13-release android14-release android15-release main master; do
+            URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/$BR/$CV.tar.gz"
+            echo "Trying $BR ..."
+            if curl -sSL "$URL" -o c.tar.gz && file c.tar.gz | grep -q gzip; then
+              tar -xzf c.tar.gz -C clang && got=1 && echo "OK from $BR" && break
+            fi
+            rm -f c.tar.gz
+          done
+          if [ "$got" != "1" ]; then
+            echo "::error::Could not fetch $CV from any known branch. Check the clang version."
+            exit 1
+          fi
+          clang/bin/clang --version
+
+      - name: Configure
+        working-directory: ks
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+
+          # Map driver -> required Kconfig symbols
+          case "${{ github.event.inputs.driver }}" in
+            mt76x2u)
+              SYMS="CONFIG_WLAN_VENDOR_MEDIATEK=y
+CONFIG_MT76_CORE=m
+CONFIG_MT76_USB=m
+CONFIG_MT76x02_LIB=m
+CONFIG_MT76x02_USB=m
+CONFIG_MT76x2_COMMON=m
+CONFIG_MT76x2U=m" ;;
+            mt76x0u)
+              SYMS="CONFIG_WLAN_VENDOR_MEDIATEK=y
+CONFIG_MT76_CORE=m
+CONFIG_MT76_USB=m
+CONFIG_MT76x02_LIB=m
+CONFIG_MT76x02_USB=m
+CONFIG_MT76x0_COMMON=m
+CONFIG_MT76x0U=m" ;;
+            rt2800usb)
+              SYMS="CONFIG_WLAN_VENDOR_RALINK=y
+CONFIG_RT2X00=m
+CONFIG_RT2800USB=m
+CONFIG_RT2800USB_RT35XX=y
+CONFIG_RT2800USB_RT53XX=y" ;;
+            ath9k_htc)
+              SYMS="CONFIG_WLAN_VENDOR_ATH=y
+CONFIG_ATH9K_HW=m
+CONFIG_ATH9K_COMMON=m
+CONFIG_ATH9K_HTC=m" ;;
+            *)
+              echo "::error::Unknown driver ${{ github.event.inputs.driver }}"; exit 1 ;;
+          esac
+
+          {
+            echo "CONFIG_WLAN=y"
+            echo "CONFIG_CFG80211=m"
+            echo "CONFIG_MAC80211=m"
+            echo "CONFIG_USB=y"
+            echo "$SYMS"
+          } >> arch/arm64/configs/gki_defconfig
+
+          make LLVM=1 ARCH=arm64 O=out gki_defconfig
+
+          # BTF: match the device. If device has BTF=y we KEEP it (pahole is
+          # installed). Only disable if the user says the device lacks it.
+          if [ "${{ github.event.inputs.btf }}" != "y" ]; then
+            ./scripts/config --file out/.config -d DEBUG_INFO_BTF
+          fi
+
+          # LTO: match the device to keep CRCs consistent.
+          case "${{ github.event.inputs.lto }}" in
+            thin) ./scripts/config --file out/.config -d LTO_CLANG_FULL -e LTO_CLANG_THIN ;;
+            none) ./scripts/config --file out/.config -d LTO_CLANG_FULL -d LTO_CLANG_THIN -e LTO_NONE ;;
+            *) : ;;  # full = leave defconfig default
+          esac
+
+          make LLVM=1 ARCH=arm64 O=out olddefconfig
+          echo "--- result ---"
+          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76|RT2800|ATH9K|DEBUG_INFO_BTF|LTO_CLANG)" out/.config || true
+
+      - name: Add swap
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 24G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      - name: Build
+        working-directory: ks
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          make LLVM=1 ARCH=arm64 O=out -j$(nproc)
+
+      - name: Show module_layout CRC
+        if: always()
+        working-directory: ks
+        run: |
+          echo "=== module_layout CRC (compare to your device!) ==="
+          grep -w module_layout out/Module.symvers || echo "not found"
+
+      - name: Collect modules
+        if: always()
+        run: |
+          mkdir -p ko
+          find ks/out -name "*.ko" \( \
+            -name "mac80211.ko" -o -name "cfg80211.ko" -o \
+            -name "mt76*.ko" -o -name "rt2*.ko" -o -name "rt2800*.ko" -o \
+            -name "ath*.ko" \) -exec cp {} ko/ \; || true
+          cp ks/out/Module.symvers ko/ 2>/dev/null || true
+          ls -la ko/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wifi-modules
+          path: ko/
