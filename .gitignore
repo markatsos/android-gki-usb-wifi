@@ -1,0 +1,19 @@
+# Never commit built modules — they are GPL-derived AND build-specific.
+*.ko
+Module.symvers
+
+# Never commit firmware blobs — proprietary to MediaTek.
+*.bin
+mt7662*
+mediatek/
+
+# Never commit images / partition dumps / patched boot images.
+*.img
+boot*.img
+vendor*.img
+
+# Build/output junk.
+ko/
+out/
+*.zip
+*.log
