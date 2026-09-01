@@ -3,7 +3,7 @@
 Three ways to load the stack, from most manual to fully automatic. All must run
 as **root** and expect:
 
-- the seven `.ko` files in `/data/data/com.termux/files/home/mt76/`
+- the seven `.ko` files in `/data/data/com.termux/files/home/modules/`
 - `mt7662.bin` and `mt7662_rom_patch.bin` in `/data/data/com.termux/files/home/`
 
 Paths are hard-coded for a Termux + Magisk + NetHunter (`kali-arm64` chroot)

@@ -11,7 +11,7 @@
 # card already attached triggers the vendor watchdog (native_hang_monitor)
 # and panics the kernel.
 
-MODDIR=/data/data/com.termux/files/home/mt76
+MODDIR=/data/data/com.termux/files/home/modules
 FWDIR=/data/local/tmp/fw
 HOME_FW=/data/data/com.termux/files/home
 

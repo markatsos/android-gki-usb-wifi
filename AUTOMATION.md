@@ -72,8 +72,8 @@ In Termux:
 
 ```
 pkg install git curl unzip
-git clone https://github.com/markatsos/p30t-mt76
-cd p30t-mt76
+git clone https://github.com/markatsos/android-gki-usb-wifi
+cd android-gki-usb-wifi
 ```
 
 ## Step 2 — probe the device
@@ -112,9 +112,9 @@ to load with *"disagrees about version of symbol module_layout"*, the CRC didn't
 match and you should recheck the commit/config).
 
 Download the `wifi-modules` artifact, then either:
-- attach its zip to a release named `mt76-modules.zip` and let `install.sh` fetch
+- attach its zip to a release named `modules.zip` and let `install.sh` fetch
   it, **or**
-- unzip its `.ko` files straight into `/data/data/com.termux/files/home/mt76/`.
+- unzip its `.ko` files straight into `/data/data/com.termux/files/home/modules/`.
 
 ## Step 4 — install (firmware + loader + boot)
 
@@ -125,11 +125,11 @@ su
 sh scripts/install.sh
 ```
 
-By default it pulls the prebuilt modules from release **`v1.0`** of
-`markatsos/p30t-mt76`. Override any of these with env vars:
+By default it pulls the prebuilt modules from release **`v2.0`** of
+`markatsos/android-gki-usb-wifi`. Override any of these with env vars:
 
 ```
-REPO=youruser/yourrepo TAG=v1.0 MODS_ZIP=mt76-modules.zip sh scripts/install.sh
+REPO=youruser/yourrepo TAG=v2.0 MODS_ZIP=modules.zip sh scripts/install.sh
 ```
 
 `install.sh` downloads the modules zip (release asset, plain curl — no token),

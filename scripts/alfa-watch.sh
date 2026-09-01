@@ -14,7 +14,7 @@
 # Stop:  pkill -f alfa-watch.sh
 # Log:   cat /data/data/com.termux/files/home/alfa-watch.log
 
-MODDIR=/data/data/com.termux/files/home/mt76
+MODDIR=/data/data/com.termux/files/home/modules
 FWDIR=/data/local/tmp/fw
 HOME_FW=/data/data/com.termux/files/home
 USB_ID="0e8d:7612"
