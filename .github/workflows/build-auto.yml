@@ -87,16 +87,24 @@ jobs:
           mkdir -p clang
           CV="${{ github.event.inputs.clang_ver }}"
           got=0
+          fetch() {  # retry a URL up to 3 times before giving up on it
+            for try in 1 2 3; do
+              if curl -fsSL --retry 3 --retry-delay 2 "$1" -o c.tar.gz \
+                 && file c.tar.gz | grep -q gzip; then return 0; fi
+              echo "   retry $try failed"; sleep 3
+            done
+            return 1
+          }
           for BR in android12-release android13-release android14-release android15-release android16-release main master; do
             URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/$BR/$CV.tar.gz"
             echo "Trying $BR ..."
-            if curl -sSL "$URL" -o c.tar.gz && file c.tar.gz | grep -q gzip; then
+            if fetch "$URL"; then
               tar -xzf c.tar.gz -C clang && got=1 && echo "OK from $BR" && break
             fi
             rm -f c.tar.gz
           done
           if [ "$got" != "1" ]; then
-            echo "::error::Could not fetch $CV from any known branch. Check the clang version for your kernel generation."
+            echo "::error::Could not fetch $CV from any known branch (after retries). Re-run the job; googlesource occasionally drops HTTP/2 streams."
             exit 1
           fi
           clang/bin/clang --version

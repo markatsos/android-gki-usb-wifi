@@ -181,6 +181,9 @@ See [`scripts/README.md`](scripts/README.md).
 - This is a **hybrid** wireless runtime (stock `cfg80211` + custom `mac80211`).
   Monitor mode + scanning work; injection wasn't exhaustively validated — test
   with `aireplay-ng --test wlan1`.
+- **Open NetHunter once per boot before plugging in the adapter.** Monitor mode
+  is set via `iw` inside the Kali chroot; its mounts must be active first, or the
+  switch fails silently (the adapter still appears as `wlan1`).
 - **Never load a custom `cfg80211.ko`.** The internal vendor Wi-Fi depends on the
   stock one; the scripts delete any built `cfg80211.ko` and never deploy it.
 - **Out-of-tree Realtek (`rtl88xxau_oot`) may not build** on every kernel — it

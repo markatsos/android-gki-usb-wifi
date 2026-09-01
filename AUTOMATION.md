@@ -139,6 +139,13 @@ boot auto-start. It never deploys a custom `cfg80211.ko`.
 
 ## Step 5 — use it
 
+> **Prerequisite for monitor mode:** open the **NetHunter app once** after each
+> boot before plugging in the adapter. `iw` runs inside the Kali chroot, and its
+> mounts (`/sys`, `/dev`) must be active — otherwise the modules load and `wlan1`
+> appears, but the switch to monitor mode fails silently. Opening NetHunter (or
+> its terminal) once activates the chroot for the session.
+
+
 ```
 nohup sh ~/alfa-watch.sh >~/alfa-watch.log 2>&1 &
 # plug in the adapter; wlan1 comes up in monitor mode automatically
