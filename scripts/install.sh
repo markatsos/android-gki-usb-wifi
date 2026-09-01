@@ -95,9 +95,13 @@ IFS=$OIFS
 # Prefer a local clone; fall back to raw download.
 echo "[*] Installing loader scripts ..."
 SRC_WATCH=""; SRC_BOOT=""
-for base in "." ".." "$HOME_DIR/android-gki-usb-wifi" "$HOME_DIR/p30t-mt76"; do
-  [ -f "$base/scripts/alfa-watch.sh" ] && SRC_WATCH="$base/scripts/alfa-watch.sh"
-  [ -f "$base/scripts/alfa-boot.sh" ]  && SRC_BOOT="$base/scripts/alfa-boot.sh"
+# Prefer the CURRENT repo checkout. Stop at the first match so a stale old
+# clone (e.g. ~/p30t-mt76) can't shadow the fresh scripts. Old repo folder is
+# only a last resort.
+for base in "." ".." "$HOME_DIR/android-gki-usb-wifi"; do
+  if [ -f "$base/scripts/alfa-watch.sh" ]; then SRC_WATCH="$base/scripts/alfa-watch.sh"; fi
+  if [ -f "$base/scripts/alfa-boot.sh" ];  then SRC_BOOT="$base/scripts/alfa-boot.sh"; fi
+  [ -n "$SRC_WATCH" ] && [ -n "$SRC_BOOT" ] && break
 done
 RAW="https://raw.githubusercontent.com/$REPO/main/scripts"
 
@@ -115,7 +119,18 @@ else
   echo "[i] No Magisk service.d - start the watcher manually (below)."
 fi
 
+# --- start the watcher now so it's live immediately -----------------------
+echo "[*] Starting watcher..."
+pkill -f alfa-watch.sh 2>/dev/null
+nohup sh "$HOME_DIR/alfa-watch.sh" > "$HOME_DIR/alfa-watch.log" 2>&1 &
+sleep 2
+
 echo ""
-echo "[OK] Done. Start it now (or reboot):"
-echo "     nohup sh $HOME_DIR/alfa-watch.sh >$HOME_DIR/alfa-watch.log 2>&1 &"
-echo "     then plug in the adapter -> wlan1 comes up in monitor mode."
+echo "[OK] Done. The watcher is running."
+echo "     - If the adapter is plugged in, wlan1 should be in monitor mode now:"
+echo "         cat $HOME_DIR/alfa-watch.log"
+echo "     - If not, just plug it in; it loads automatically."
+echo ""
+echo "     NOTE: open the NetHunter app once this session before using airodump/"
+echo "     aireplay, so the Kali chroot mounts are active (monitor mode is set"
+echo "     via iw inside that chroot)."
