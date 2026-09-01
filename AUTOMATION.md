@@ -34,6 +34,38 @@ is best-effort.
 
 ---
 
+
+---
+
+## Supported adapters & drivers
+
+`detect.sh` recognizes the USB IDs below and picks the driver + firmware for you.
+
+| Driver (`driver` input) | Chips | In-tree? | Firmware | Monitor/inject |
+|---|---|---|---|---|
+| `mt76x2u` | MT7612U/7662 | yes | `mt7662*.bin` | good |
+| `mt76x0u` | MT7610U/7630U/7650U | yes | `mt7610u.bin` etc. | good |
+| `rt2800usb` | RT5370/5372/3070/3072/2870/3572 | yes | none | good, no firmware needed |
+| `ath9k_htc` | AR9271, AR7010 | yes | `htc_9271.fw`/`htc_7010.fw` | good (proven on this SoC) |
+| `rtl8xxxu` | RTL8188CU/EU, RTL8192CU/EU | yes | none | varies by chip |
+| `rtl88xxau_oot` | RTL8812AU/8814AU/8811AU/8821AU | **no – out-of-tree** | in-driver | good *if it builds* |
+
+**In-tree** drivers build straight from the ACK kernel source and are the safe
+bet. **Out-of-tree** Realtek (the popular AWUS036ACH / 8812AU family) is built
+from an external repo (default `aircrack-ng/rtl8812au`) against the prepared
+kernel; it works when that driver supports your kernel version, but success is
+not guaranteed — if the build fails, try a different `oot_branch`.
+
+## Supported kernel generations
+
+Set the `kbranch` input to match your device (detect.sh prints `KERNEL_GEN`):
+
+`android12-5.10` · `android13-5.15` · `android14-6.1` · `android15-6.6`
+
+The `kcommit` must be a **public** commit on that branch (detect.sh checks with
+a live HTTP request). If your vendor never published matching source, no build
+can produce loadable modules — that's a hard limit, not a bug.
+
 ## Step 1 — clone the repo (gets scripts + tools)
 
 In Termux:

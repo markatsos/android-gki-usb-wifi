@@ -60,6 +60,7 @@ kv "ack_branch_guess" "$ACK_BRANCH"
   echo "COMMIT_SHORT=${KHASH}"
   echo "ANDROID_BRANCH=${KBRANCH}"
   echo "ACK_BRANCH_GUESS=${ACK_BRANCH}"
+  echo "KERNEL_GEN=${ACK_BRANCH}"
 } >> "$OUT"
 
 say ""
@@ -119,15 +120,55 @@ say ""
 # ------------------------------------------------------------ USB adapter
 # Known USB IDs -> module + firmware hints
 usb_hint() {
+  # returns: driver|firmware|description
   case "$1" in
+    # --- MediaTek (in-tree mt76) ---
     0e8d:7612) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U (ALFA AWUS036ACM)";;
-    0e8d:7610) echo "mt76x0u|mt7610*.bin|MT7610U";;
-    0bda:8812) echo "rtl88XXau(vendor)|none(in-driver)|RTL8812AU (needs out-of-tree driver)";;
-    0bda:8813) echo "rtl88XXau(vendor)|none(in-driver)|RTL8813AU";;
-    148f:5370) echo "rt2800usb|none|RT5370";;
+    0e8d:7662) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U";;
+    0b05:17d2) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U (Asus USB-AC53)";;
+    057c:8503) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U (AVM FRITZ AC860)";;
+    0e8d:7610) echo "mt76x0u|mt7610u.bin|MT7610U";;
+    148f:761a) echo "mt76x0u|mt7610u.bin|MT7610U (Ralink-branded)";;
+    148f:760b) echo "mt76x0u|mt7610u.bin|MT7610U";;
+    0e8d:7630) echo "mt76x0u|mt7610u.bin|MT7630U";;
+    0e8d:7650) echo "mt76x0u|mt7650u.bin|MT7650U";;
+    # --- Ralink / MediaTek legacy (in-tree rt2800usb) ---
+    148f:5370) echo "rt2800usb|none|RT5370 (very common cheap dongle)";;
+    148f:5372) echo "rt2800usb|none|RT5372";;
+    148f:3070) echo "rt2800usb|none|RT3070";;
+    148f:3072) echo "rt2800usb|none|RT3072";;
+    148f:2870) echo "rt2800usb|none|RT2870";;
+    148f:3572) echo "rt2800usb|none|RT3572";;
+    0b05:1732) echo "rt2800usb|none|RT2870 (Asus WL-167g)";;
+    07d1:3c09) echo "rt2800usb|none|RT2870 (D-Link DWA-140)";;
+    2001:3c1e) echo "rt2800usb|none|RT5372 (D-Link)";;
+    # --- Atheros (in-tree ath9k_htc) ---
     0cf3:9271) echo "ath9k_htc|htc_9271.fw|AR9271 (ALFA AWUS036NHA)";;
+    0cf3:1006) echo "ath9k_htc|htc_9271.fw|AR9271";;
     0846:9030) echo "ath9k_htc|htc_9271.fw|AR9271 (Netgear WNA1100)";;
-    *) echo "unknown|unknown|unrecognized - look it up";;
+    040d:3801) echo "ath9k_htc|htc_9271.fw|AR9271";;
+    13b1:0031) echo "ath9k_htc|htc_9271.fw|AR9271 (Linksys AE1000)";;
+    0cf3:7015) echo "ath9k_htc|htc_7010.fw|AR7010 (AR9280/9287 dual-band)";;
+    0846:9018) echo "ath9k_htc|htc_7010.fw|AR7010 (Netgear WNDA3200)";;
+    083a:a704) echo "ath9k_htc|htc_7010.fw|AR7010 (ZyXEL)";;
+    # --- Realtek in-tree (rtl8xxxu) : RTL8188/8192 CU/EU/RU ---
+    0bda:8176) echo "rtl8xxxu|none|RTL8188CU";;
+    0bda:8178) echo "rtl8xxxu|none|RTL8192CU";;
+    0bda:817a) echo "rtl8xxxu|none|RTL8188CU";;
+    0bda:818b) echo "rtl8xxxu|none|RTL8192EU";;
+    0bda:8179) echo "rtl8xxxu|none|RTL8188EU";;
+    2001:330d) echo "rtl8xxxu|none|RTL8192CU (D-Link DWA-131)";;
+    0bda:8172) echo "rtl8xxxu|none|RTL8191SU";;
+    # --- Realtek OUT-OF-TREE (rtl88xxau_oot) : RTL8812/8814/8821 AU ---
+    0bda:8812) echo "rtl88xxau_oot|none(in-driver)|RTL8812AU (ALFA AWUS036ACH; OUT-OF-TREE driver)";;
+    0bda:881a) echo "rtl88xxau_oot|none(in-driver)|RTL8812AU (OUT-OF-TREE)";;
+    0bda:8813) echo "rtl88xxau_oot|none(in-driver)|RTL8814AU (ALFA AWUS1900; OUT-OF-TREE)";;
+    0bda:8811) echo "rtl88xxau_oot|none(in-driver)|RTL8811AU (OUT-OF-TREE)";;
+    0bda:0811) echo "rtl88xxau_oot|none(in-driver)|RTL8811AU (OUT-OF-TREE)";;
+    2357:0108) echo "rtl88xxau_oot|none(in-driver)|RTL8812AU (TP-Link Archer T4U; OUT-OF-TREE)";;
+    2357:0101) echo "rtl88xxau_oot|none(in-driver)|RTL8812AU (TP-Link; OUT-OF-TREE)";;
+    0e66:0022) echo "rtl88xxau_oot|none(in-driver)|RTL8812AU (Hawking; OUT-OF-TREE)";;
+    *) echo "unknown|unknown|unrecognized - look up the USB ID";;
   esac
 }
 
@@ -144,7 +185,7 @@ for d in /sys/bus/usb/devices/*/idProduct; do
   desc=$(printf '%s' "$hint" | cut -d'|' -f3)
   # only report likely wifi (known ids, or has a wireless-ish interface)
   case "$id" in
-    0e8d:*|0bda:*|148f:*|0cf3:*|0846:*)
+    0e8d:*|0bda:*|148f:*|0cf3:*|0846:*|0b05:*|057c:*|07d1:*|2001:*|2357:*|040d:*|13b1:*|083a:*|0e66:*|040d:*)
       FOUND="$id"
       kv "usb_wifi_found" "$id at $(basename "$dir")"
       kv "  chipset"      "$desc"
@@ -193,6 +234,17 @@ fi
 [ "$MODVER" = "y" ] && say "NOTE: MODVERSIONS=y - modules MUST be built from the exact commit (this is normal for GKI)."
 [ "$BTF" = "y" ] && say "NOTE: BTF=y - build must keep BTF enabled (workflow installs pahole)."
 [ "$LTOTHIN" = "y" ] && say "NOTE: thin LTO in use - set LTO thin in the workflow to match."
+case "${DRIVER:-}" in
+  rtl88xxau_oot)
+    say "NOTE: this adapter needs an OUT-OF-TREE Realtek driver (RTL8812/8814/8821AU)."
+    say "      The workflow builds it from an external repo (default: aircrack-ng/rtl8812au)."
+    say "      Success is less guaranteed than in-tree drivers; the driver must support"
+    say "      your kernel version. If it fails to build, try a different driver branch." ;;
+  rtl8xxxu)
+    say "NOTE: RTL8188/8192 via in-tree rtl8xxxu. Monitor-mode/injection support varies by chip." ;;
+  rt2800usb)
+    say "NOTE: rt2800usb has good monitor/injection support and needs no firmware file." ;;
+esac
 
 if [ "$REF" = "yes" ]; then
   say ""

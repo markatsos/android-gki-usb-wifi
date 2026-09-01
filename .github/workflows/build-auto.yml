@@ -6,12 +6,16 @@ name: Build Wi-Fi modules (parametrized)
 on:
   workflow_dispatch:
     inputs:
+      kbranch:
+        description: "ACK branch matching your kernel: android12-5.10 | android13-5.15 | android14-6.1 | android15-6.6"
+        required: true
+        default: "android13-5.15"
       kcommit:
-        description: "ACK commit (COMMIT_SHORT or full hash from device-profile.txt)"
+        description: "Exact ACK commit (COMMIT_SHORT / full hash). Overrides kbranch tip if set."
         required: true
         default: "4ea0fcb5d1308f2f5a5dec0a3a5c8f1b261e00c7"
       clang_ver:
-        description: "Android Clang version (e.g. clang-r450784e)"
+        description: "Android Clang version (e.g. clang-r450784e). See device-profile.txt / notes."
         required: true
         default: "clang-r450784e"
       btf:
@@ -23,9 +27,17 @@ on:
         required: true
         default: "full"
       driver:
-        description: "Target driver: mt76x2u | mt76x0u | rt2800usb | ath9k_htc"
+        description: "Driver: mt76x2u | mt76x0u | rt2800usb | ath9k_htc | rtl8xxxu | rtl88xxau_oot"
         required: true
         default: "mt76x2u"
+      oot_repo:
+        description: "For rtl88xxau_oot only: git URL of the out-of-tree driver"
+        required: false
+        default: "https://github.com/aircrack-ng/rtl8812au"
+      oot_branch:
+        description: "For rtl88xxau_oot only: branch/tag of that repo"
+        required: false
+        default: "v5.6.4.2"
 
 jobs:
   build:
@@ -33,6 +45,7 @@ jobs:
     steps:
       - name: Show inputs
         run: |
+          echo "branch  = ${{ github.event.inputs.kbranch }}"
           echo "commit  = ${{ github.event.inputs.kcommit }}"
           echo "clang   = ${{ github.event.inputs.clang_ver }}"
           echo "btf     = ${{ github.event.inputs.btf }}"
@@ -58,7 +71,7 @@ jobs:
             "https://android.googlesource.com/kernel/common/+/$H")
           echo "gitiles HTTP $CODE for $H"
           if [ "$CODE" != "200" ]; then
-            echo "::error::Commit $H is not public on ACK. You need matching vendor source; this workflow can't fetch it."
+            echo "::error::Commit $H is not public on ACK. Your vendor kernel source isn't on the common tree; this workflow can't fetch matching source, so CRCs won't line up. Find the vendor GPL drop for your device."
             exit 1
           fi
 
@@ -74,7 +87,7 @@ jobs:
           mkdir -p clang
           CV="${{ github.event.inputs.clang_ver }}"
           got=0
-          for BR in android13-release android14-release android15-release main master; do
+          for BR in android12-release android13-release android14-release android15-release android16-release main master; do
             URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/$BR/$CV.tar.gz"
             echo "Trying $BR ..."
             if curl -sSL "$URL" -o c.tar.gz && file c.tar.gz | grep -q gzip; then
@@ -83,7 +96,7 @@ jobs:
             rm -f c.tar.gz
           done
           if [ "$got" != "1" ]; then
-            echo "::error::Could not fetch $CV from any known branch. Check the clang version."
+            echo "::error::Could not fetch $CV from any known branch. Check the clang version for your kernel generation."
             exit 1
           fi
           clang/bin/clang --version
@@ -101,55 +114,59 @@ jobs:
           {
             echo "CONFIG_WLAN=y"
             echo "CONFIG_CFG80211=m"
-            echo "CONFIG_MAC80211=m"
             echo "CONFIG_USB=y"
           } >> arch/arm64/configs/gki_defconfig
 
-          # Driver-specific symbols, appended one per line
+          # mac80211 is needed by every driver EXCEPT the Realtek out-of-tree one,
+          # which ships its own stack. Add it unless that path is chosen.
+          if [ "$DRIVER" != "rtl88xxau_oot" ]; then
+            echo "CONFIG_MAC80211=m" >> arch/arm64/configs/gki_defconfig
+          fi
+
+          # Driver-specific in-tree symbols
           case "$DRIVER" in
             mt76x2u)
               printf '%s\n' \
                 CONFIG_WLAN_VENDOR_MEDIATEK=y \
-                CONFIG_MT76_CORE=m \
-                CONFIG_MT76_USB=m \
-                CONFIG_MT76x02_LIB=m \
-                CONFIG_MT76x02_USB=m \
-                CONFIG_MT76x2_COMMON=m \
-                CONFIG_MT76x2U=m >> arch/arm64/configs/gki_defconfig ;;
+                CONFIG_MT76_CORE=m CONFIG_MT76_USB=m \
+                CONFIG_MT76x02_LIB=m CONFIG_MT76x02_USB=m \
+                CONFIG_MT76x2_COMMON=m CONFIG_MT76x2U=m >> arch/arm64/configs/gki_defconfig ;;
             mt76x0u)
               printf '%s\n' \
                 CONFIG_WLAN_VENDOR_MEDIATEK=y \
-                CONFIG_MT76_CORE=m \
-                CONFIG_MT76_USB=m \
-                CONFIG_MT76x02_LIB=m \
-                CONFIG_MT76x02_USB=m \
-                CONFIG_MT76x0_COMMON=m \
-                CONFIG_MT76x0U=m >> arch/arm64/configs/gki_defconfig ;;
+                CONFIG_MT76_CORE=m CONFIG_MT76_USB=m \
+                CONFIG_MT76x02_LIB=m CONFIG_MT76x02_USB=m \
+                CONFIG_MT76x0_COMMON=m CONFIG_MT76x0U=m >> arch/arm64/configs/gki_defconfig ;;
             rt2800usb)
               printf '%s\n' \
                 CONFIG_WLAN_VENDOR_RALINK=y \
-                CONFIG_RT2X00=m \
+                CONFIG_RT2X00=m CONFIG_RT2X00_LIB_USB=m \
                 CONFIG_RT2800USB=m \
-                CONFIG_RT2800USB_RT35XX=y \
-                CONFIG_RT2800USB_RT53XX=y >> arch/arm64/configs/gki_defconfig ;;
+                CONFIG_RT2800USB_RT33XX=y CONFIG_RT2800USB_RT35XX=y \
+                CONFIG_RT2800USB_RT3573=y CONFIG_RT2800USB_RT53XX=y \
+                CONFIG_RT2800USB_RT55XX=y CONFIG_RT2800USB_UNKNOWN=y >> arch/arm64/configs/gki_defconfig ;;
             ath9k_htc)
               printf '%s\n' \
                 CONFIG_WLAN_VENDOR_ATH=y \
-                CONFIG_ATH9K_HW=m \
-                CONFIG_ATH9K_COMMON=m \
-                CONFIG_ATH9K_HTC=m >> arch/arm64/configs/gki_defconfig ;;
+                CONFIG_ATH9K_HW=m CONFIG_ATH9K_COMMON=m CONFIG_ATH9K_HTC=m >> arch/arm64/configs/gki_defconfig ;;
+            rtl8xxxu)
+              # in-tree Realtek USB (RTL8188/8192 CU/EU/RU etc.)
+              printf '%s\n' \
+                CONFIG_WLAN_VENDOR_REALTEK=y \
+                CONFIG_RTL8XXXU=m CONFIG_RTL8XXXU_UNTESTED=y >> arch/arm64/configs/gki_defconfig ;;
+            rtl88xxau_oot)
+              # out-of-tree (RTL8812AU/8814AU/8821AU) - built in a later step.
+              # Only mac80211/cfg80211 base is needed here; driver brings the rest.
+              echo "CONFIG_MAC80211=m" >> arch/arm64/configs/gki_defconfig ;;
             *)
               echo "::error::Unknown driver $DRIVER"; exit 1 ;;
           esac
 
           make LLVM=1 ARCH=arm64 O=out gki_defconfig
 
-          # BTF: keep it if the device has BTF=y (pahole is installed).
           if [ "$BTF" != "y" ]; then
             ./scripts/config --file out/.config -d DEBUG_INFO_BTF
           fi
-
-          # LTO: match the device to keep CRCs consistent.
           case "$LTO" in
             thin) ./scripts/config --file out/.config -d LTO_CLANG_FULL -e LTO_CLANG_THIN ;;
             none) ./scripts/config --file out/.config -d LTO_CLANG_FULL -d LTO_CLANG_THIN -e LTO_NONE ;;
@@ -158,7 +175,14 @@ jobs:
 
           make LLVM=1 ARCH=arm64 O=out olddefconfig
           echo "--- result ---"
-          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76|RT2800|ATH9K|DEBUG_INFO_BTF|LTO_CLANG)" out/.config || true
+          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76|RT2X00|RT2800|ATH9K|RTL8XXXU|DEBUG_INFO_BTF|LTO_CLANG)" out/.config || true
+
+      - name: Prepare kernel for external modules
+        working-directory: ks
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          # modules_prepare lets out-of-tree drivers build against this config
+          make LLVM=1 ARCH=arm64 O=out modules_prepare
 
       - name: Add swap
         run: |
@@ -169,11 +193,32 @@ jobs:
           sudo swapon /mnt/swapfile
           free -h
 
-      - name: Build
+      - name: Build in-tree modules
         working-directory: ks
         run: |
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           make LLVM=1 ARCH=arm64 O=out -j$(nproc)
+
+      - name: Build out-of-tree Realtek driver
+        if: ${{ github.event.inputs.driver == 'rtl88xxau_oot' }}
+        env:
+          OOT_REPO: ${{ github.event.inputs.oot_repo }}
+          OOT_BRANCH: ${{ github.event.inputs.oot_branch }}
+        run: |
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          git clone --depth 1 -b "$OOT_BRANCH" "$OOT_REPO" oot || \
+          git clone --depth 1 "$OOT_REPO" oot
+          cd oot
+          echo "Building $(basename "$OOT_REPO") @ $OOT_BRANCH against prepared kernel..."
+          # Most rtl88xxau Makefiles accept KSRC + cross vars
+          make -j$(nproc) \
+            KSRC="$GITHUB_WORKSPACE/ks/out" \
+            ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            LLVM=1 CC=clang LD=ld.lld \
+            || { echo "::warning::OOT build failed with LLVM; retrying with default toolchain"; \
+                 make -j$(nproc) KSRC="$GITHUB_WORKSPACE/ks/out" ARCH=arm64 || true; }
+          find . -name "*.ko" -exec ls -la {} \;
 
       - name: Show module_layout CRC
         if: always()
@@ -186,12 +231,15 @@ jobs:
         if: always()
         run: |
           mkdir -p ko
+          # in-tree
           find ks/out -name "*.ko" \( \
             -name "mac80211.ko" -o -name "cfg80211.ko" -o \
             -name "mt76*.ko" -o -name "rt2*.ko" -o -name "rt2800*.ko" -o \
-            -name "ath*.ko" \) -exec cp {} ko/ \; || true
+            -name "ath*.ko" -o -name "rtl8xxxu.ko" \) -exec cp {} ko/ \; || true
+          # out-of-tree (if built)
+          find oot -name "*.ko" -exec cp {} ko/ \; 2>/dev/null || true
           cp ks/out/Module.symvers ko/ 2>/dev/null || true
-          ls -la ko/
+          echo "--- collected ---"; ls -la ko/
 
       - uses: actions/upload-artifact@v4
         if: always()
