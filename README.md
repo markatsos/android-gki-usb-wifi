@@ -24,6 +24,37 @@ boot-image patching.
 
 ---
 
+## Quick install (Teclast P30T / UMS9230 — the tested fast path)
+
+Prebuilt modules for this exact kernel are attached to the
+[latest release](../../releases/latest), so you don't have to build anything.
+In Termux, rooted (Magisk):
+
+```
+pkg install git curl unzip
+git clone https://github.com/markatsos/p30t-mt76
+cd p30t-mt76
+su
+sh scripts/detect.sh          # confirms your device matches
+sh scripts/install.sh         # pulls modules + firmware, sets up auto-load
+```
+
+Then start it (or reboot) and plug in the adapter:
+
+```
+nohup sh ~/alfa-watch.sh >~/alfa-watch.log 2>&1 &
+cat ~/alfa-watch.log          # -> [OK] wlan1 is UP in MONITOR mode.
+```
+
+`iw` / `airodump-ng` run inside the NetHunter (Kali) chroot; the watcher already
+sets monitor mode through it. `install.sh` also drops a Magisk boot script (if
+`/data/adb/service.d` exists) so it all comes up automatically after a reboot.
+
+On **any other device**, or to build the modules yourself, see
+[AUTOMATION.md](AUTOMATION.md).
+
+---
+
 ## Demo
 
 `airodump-ng wlan1` scanning in monitor mode via the external MT7612U adapter,
@@ -53,22 +84,21 @@ alongside the tablet's internal Wi-Fi. BSSIDs and network names are redacted.
 Other UMS9230/T615 devices on the **same kernel string** may work with the same
 build (the boot image appears to be a shared Unisoc reference image), but you
 must verify your own kernel string and, ideally, your own `module_layout` CRC.
+`scripts/detect.sh` checks all of this for you.
 
 ---
 
 ## What this repo does NOT contain
 
-By design, and for licensing/correctness reasons, this repo does **not** ship:
+By design, and for licensing/correctness reasons, this repo does **not** commit:
 
-- compiled `.ko` modules (they are GPL-derived **and** build-specific — a module
-  built for another kernel will be rejected by `CONFIG_MODVERSIONS`)
-- MediaTek firmware blobs (`mt7662*.bin`) — proprietary; get them from
-  [`linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)
+- compiled `.ko` modules in the source tree (they are GPL-derived **and**
+  build-specific — a module built for another kernel is rejected by
+  `CONFIG_MODVERSIONS`). Prebuilt modules for the P30T are attached to a
+  **release** for convenience, not committed to `main`.
+- MediaTek firmware blobs (`mt7662*.bin`) — proprietary; fetched at install time
+  from [`linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)
 - boot/vendor images or extracted vendor trees
-
-You build your own modules with the included GitHub Actions workflow and fetch
-firmware from the upstream project. This keeps everything legal and, more
-importantly, guarantees the CRCs match *your* device.
 
 ---
 
@@ -91,87 +121,34 @@ importantly, guarantees the CRCs match *your* device.
 
 ---
 
-## Quick start
+## Building it yourself
 
-### 1. Build the modules (GitHub Actions, no local Linux needed)
+If you're not on the fast path, or you want to build rather than trust the
+release binaries, the full flow is in [AUTOMATION.md](AUTOMATION.md):
 
-1. Fork this repo.
-2. **Verify your kernel matches** (on the tablet, in a root shell):
-   ```
-   uname -r
-   ```
-   If it is **not** `5.15.178-android13-8-00012-g4ea0fcb5d130-ab13530115`, see
-   [Adapting to another build](#adapting-to-another-build) first.
-3. Actions tab → **Build mt76 for UMS9230** → **Run workflow**.
-4. When it finishes (~35 min), download the `mt76-modules` artifact. It contains
-   the seven `.ko` files, plus `Module.symvers` and the `module_layout` CRC in
-   the run log (compare it to yours).
+1. `scripts/detect.sh` reads your kernel/commit/config and emits
+   `device-profile.txt`.
+2. **Actions → Build Wi-Fi modules (parametrized)** takes those values as inputs
+   (defaults are the P30T's) and builds the `.ko` set.
+3. `scripts/install.sh` fetches the modules (from a release asset) + firmware and
+   sets everything up.
 
-### 2. Get the firmware
-
-From [`linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware/-/tree/main/mediatek),
-download `mediatek/mt7662.bin` and `mediatek/mt7662_rom_patch.bin`.
-
-### 3. Put files on the device
-
-Assuming Termux is installed and rooted (Magisk):
-
-```
-# modules
-mkdir -p /data/data/com.termux/files/home/mt76
-# copy the 7 .ko files into that folder
-
-# firmware (next to home, the scripts stage it into /data/local/tmp/fw)
-# copy mt7662.bin and mt7662_rom_patch.bin into:
-#   /data/data/com.termux/files/home/
-```
-
-### 4. Load it
-
-Manual, one-shot (see [`scripts/alfa-up.sh`](scripts/alfa-up.sh)):
-
-```
-su
-sh /data/data/com.termux/files/home/alfa-up.sh
-# then plug in the card when prompted
-```
-
-Plug-and-play watcher (see [`scripts/alfa-watch.sh`](scripts/alfa-watch.sh)) —
-loads the stack automatically whenever the card is plugged in, and sets monitor
-mode via the Kali chroot:
-
-```
-su
-nohup sh /data/data/com.termux/files/home/alfa-watch.sh \
-  >/data/data/com.termux/files/home/alfa-watch.log 2>&1 &
-```
-
-Auto-start at boot (see [`scripts/alfa-boot.sh`](scripts/alfa-boot.sh)) — place
-it in `/data/adb/service.d/` (Magisk) so the watcher starts after every boot.
-**Read the [warnings](#warnings) about this first.**
+There is also a fixed, non-parametrized workflow (`build.yml`) hard-wired to the
+P30T values, if you prefer.
 
 ---
 
-## Adapting to another build
+## Scripts
 
-If your kernel string differs:
+See [`scripts/README.md`](scripts/README.md). In short:
 
-1. Read the ACK commit from your own kernel — the `gXXXXXXXX` part of `uname -r`
-   is the short commit hash. Confirm it exists in the public tree:
-   ```
-   curl -sI https://android.googlesource.com/kernel/common/+/<hash>
-   ```
-   A `200` means it's a public ACK commit you can build from.
-2. If it's a **different** commit, set `KCOMMIT` in the workflow to yours.
-3. If your toolchain differs, change the Clang version / branch in the workflow.
-4. If your device does **not** have `CONFIG_DEBUG_INFO_BTF=y`, or uses thin LTO,
-   adjust the config block. Check with:
-   ```
-   zcat /proc/config.gz | grep -E "DEBUG_INFO_BTF|LTO|MODVERSIONS"
-   ```
-5. After building, compare the `module_layout` CRC in the run log to your device.
-   If they differ, the modules will be rejected with *"disagrees about version of
-   symbol module_layout"* — recheck the commit/config.
+| Script | Role |
+|---|---|
+| `detect.sh` | Probe device; write `device-profile.txt`; verdict. Changes nothing. |
+| `install.sh` | Download modules (release) + firmware; install loader + boot script. |
+| `alfa-watch.sh` | Plug-triggered loader; sets monitor mode via the Kali chroot. |
+| `alfa-boot.sh` | Magisk `service.d` auto-start (boot-safe, kill-switch). |
+| `alfa-up.sh` | Manual one-shot loader (understand the flow). |
 
 ---
 
@@ -183,12 +160,12 @@ If your kernel string differs:
   validated — test with `aireplay-ng --test wlan1` if you need it.
 - **Never load a custom `cfg80211.ko`.** The internal Unisoc Wi-Fi
   (`sprd_wlan_combo`) depends on the stock one. The build produces a
-  `cfg80211.ko` only so `mac80211` can link; do not deploy it.
-- **Boot auto-start carries a small bootloop risk.** The `alfa-boot.sh` script is
-  written to be boot-safe (waits for `sys.boot_completed`, adds a settle delay,
-  backgrounds everything, and honors a kill-switch). Still, keep `adb` handy the
-  first time. Kill-switch: `touch /data/adb/alfa-disable` disables auto-start;
-  `rm` it to re-enable.
+  `cfg80211.ko` only so `mac80211` can link; the scripts delete it and never
+  deploy it.
+- **Boot auto-start carries a small bootloop risk.** `alfa-boot.sh` is written to
+  be boot-safe (waits for `sys.boot_completed`, settle delay, backgrounded,
+  kill-switch). Still, keep `adb` handy the first time. Kill-switch:
+  `touch /data/adb/alfa-disable` disables it; `rm` re-enables.
 - **Boot with the card unplugged**, then plug it in ~30s after the system is up.
   This keeps the card out of the boot-time probe path entirely.
 - OTG provides limited current; the AWUS036ACM draws a fair amount on TX. If you

@@ -1,32 +1,46 @@
 #!/system/bin/sh
 # alfa-boot.sh - Magisk service.d boot script.
-# Auto-starts the Alfa watcher AFTER boot completes. Boot-safe by design:
-#   - waits for sys.boot_completed before doing anything
-#   - adds a settle delay so the system is stable first
-#   - backgrounds everything so a hang here can never stall boot
-#   - honors a persistent kill-switch so you never need recovery to disable it
+# Auto-starts the Alfa watcher once the device is actually usable.
 #
-# INSTALL: place at /data/adb/service.d/alfa-boot.sh  (chmod 755)
+# Boot-safe by design:
+#   - waits for sys.boot_completed
+#   - THEN waits for the Termux home to become readable, because that folder is
+#     on credential-encrypted (CE) storage and stays locked until the first
+#     unlock after boot. Starting the watcher before that fails silently (the
+#     modules and the script itself live there).
+#   - backgrounds everything so nothing here can stall boot
+#   - honors a persistent kill-switch
 #
-# DISABLE PERMANENTLY (if it ever misbehaves), from adb/recovery/root shell:
-#   touch /data/adb/alfa-disable
-# RE-ENABLE:
-#   rm /data/adb/alfa-disable
+# INSTALL: /data/adb/service.d/alfa-boot.sh  (chmod 755)
+# DISABLE: touch /data/adb/alfa-disable      RE-ENABLE: rm /data/adb/alfa-disable
 
-# persistent kill-switch (survives reboot, unlike /data/local/tmp)
 [ -f /data/adb/alfa-disable ] && exit 0
 
-# detach entirely so nothing here can block the boot sequence
+HOME_DIR=/data/data/com.termux/files/home
+WATCH="$HOME_DIR/alfa-watch.sh"
+LOG="$HOME_DIR/alfa-watch.log"
+
 (
+  # 1. wait for boot to complete
   n=0
-  while [ "$(getprop sys.boot_completed)" != "1" ] && [ $n -lt 120 ]; do
+  while [ "$(getprop sys.boot_completed)" != "1" ] && [ $n -lt 150 ]; do
     sleep 2; n=$((n+1))
   done
-  sleep 30   # let the system settle
 
-  WATCH=/data/data/com.termux/files/home/alfa-watch.sh
-  LOG=/data/data/com.termux/files/home/alfa-watch.log
-  [ -f "$WATCH" ] && nohup sh "$WATCH" > "$LOG" 2>&1 &
+  # 2. wait for CE storage (Termux home) to be unlocked/readable.
+  #    This is the key fix: the folder exists but is unreadable until the user
+  #    unlocks the device once. Poll until the watcher script is actually there.
+  n=0
+  while [ ! -r "$WATCH" ] && [ $n -lt 900 ]; do   # up to ~30 min of waiting
+    sleep 2; n=$((n+1))
+  done
+  [ -r "$WATCH" ] || exit 0    # never showed up; give up quietly
+
+  # 3. small settle, then start the watcher (only if not already running)
+  sleep 5
+  if ! pgrep -f alfa-watch.sh >/dev/null 2>&1; then
+    nohup sh "$WATCH" > "$LOG" 2>&1 &
+  fi
 ) &
 
 exit 0
