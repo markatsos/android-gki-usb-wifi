@@ -24,6 +24,47 @@ The watcher loads the driver stack automatically on plug-in and brings up
 
 ---
 
+## Why this instead of a custom NetHunter kernel?
+
+The usual way to get external USB Wi-Fi working on Android is to build a **whole
+custom NetHunter kernel** with the drivers compiled in, and **flash it**. That
+approach only exists for a handful of popular phones, is device-specific, risks
+bricking, and **breaks on every OTA update**. If your device has no prebuilt
+NetHunter kernel, you're stuck.
+
+This project takes a different route: it builds just the **driver modules**
+against your *running* stock kernel and loads them on top of it.
+
+| | Custom NetHunter kernel | This project (external modules) |
+|---|---|---|
+| Flashing | Required (boot/kernel image) | **None** |
+| Brick risk | Yes | **No** (nothing flashed) |
+| Survives OTA updates | No (must rebuild/reflash) | **Yes** (just rebuild modules) |
+| Device coverage | Only devices with a prebuilt kernel | **Any** GKI device that passes `detect.sh` |
+| Internal Wi-Fi | Replaced | **Untouched** (loads alongside it) |
+| Reverts by | Reflashing stock | **Reboot** (modules are not persistent) |
+
+The trade-off: it's a *hybrid* runtime (stock `cfg80211` + external `mac80211`),
+so it's best-effort per device — but when `detect.sh` says your device is
+buildable, you get monitor mode without ever touching a partition.
+
+## Will my device work?
+
+Run `scripts/detect.sh` — it checks everything and gives a yes/no verdict. In
+short, you need:
+
+- **Rooted** Android with **Magisk** (to load modules + set the firmware path)
+- A **GKI kernel** (5.10 / 5.15 / 6.1 / 6.6 — i.e. most devices on Android 12+)
+- Module signature enforcement **off** (`CONFIG_MODULE_SIG_FORCE` not set) — the
+  default on virtually all shipping Android kernels, since there's no Secure Boot
+- Your kernel's **source commit public** on the Android Common Kernel tree
+  (`detect.sh` verifies this with a live request)
+- NetHunter (or a Kali chroot) for the userspace tools (`iw`, `airodump-ng`)
+
+If those hold, the method works — it is **not** limited to the Teclast P30T; that
+device is just the fully-tested reference. Devices with **no** custom NetHunter
+kernel are exactly the ones this helps most.
+
 ## Support matrix
 
 Legend: tested = verified on real hardware · built = compiles but not
