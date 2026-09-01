@@ -40,6 +40,17 @@ have curl  || { echo "need curl:  pkg install curl";  exit 1; }
 have unzip || { echo "need unzip: pkg install unzip"; exit 1; }
 [ "$(id -u)" = "0" ] || { echo "run as root (su)"; exit 1; }
 
+# --- migrate from older layout (v1.x used ~/mt76) --------------------------
+# Old installs kept modules in ~/mt76 and may have left a boot script pointing
+# there. Clean that up so this (v2.x, ~/modules) install is authoritative.
+OLD_MOD="$HOME_DIR/mt76"
+if [ -d "$OLD_MOD" ] && [ "$OLD_MOD" != "$MODDIR" ]; then
+  echo "[*] Migrating: removing old module dir $OLD_MOD"
+  rm -rf "$OLD_MOD"
+fi
+# stop any running watcher so it reloads with the new paths
+pkill -f alfa-watch.sh 2>/dev/null && echo "[*] Stopped running watcher (will restart with new paths)"
+
 echo "=== install: $REPO @ $TAG ==="
 
 # ---- modules from release asset -----------------------------------------
