@@ -11,13 +11,13 @@
 #   sh install.sh
 #
 # Optional overrides (env vars):
-#   REPO=user/repo         (default: markatsos/p30t-mt76)
-#   TAG=v1.0               (release tag holding the modules zip)
+#   REPO=user/repo         (default: markatsos/android-gki-usb-wifi)
+#   TAG=v2.0               (release tag holding the modules zip)
 #   MODS_ZIP=name.zip      (asset filename; default mt76-modules.zip)
 #   PROFILE=path           (device-profile.txt from detect.sh)
 
-REPO="${REPO:-markatsos/p30t-mt76}"
-TAG="${TAG:-v1.0}"
+REPO="${REPO:-markatsos/android-gki-usb-wifi}"
+TAG="${TAG:-v2.0}"
 MODS_ZIP="${MODS_ZIP:-mt76-modules.zip}"
 
 HOME_DIR=/data/data/com.termux/files/home
@@ -84,7 +84,7 @@ IFS=$OIFS
 # Prefer a local clone; fall back to raw download.
 echo "[*] Installing loader scripts ..."
 SRC_WATCH=""; SRC_BOOT=""
-for base in "." ".." "$HOME_DIR/p30t-mt76"; do
+for base in "." ".." "$HOME_DIR/android-gki-usb-wifi" "$HOME_DIR/p30t-mt76"; do
   [ -f "$base/scripts/alfa-watch.sh" ] && SRC_WATCH="$base/scripts/alfa-watch.sh"
   [ -f "$base/scripts/alfa-boot.sh" ]  && SRC_BOOT="$base/scripts/alfa-boot.sh"
 done

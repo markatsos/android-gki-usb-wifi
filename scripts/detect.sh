@@ -31,7 +31,7 @@ have curl && CURL=curl
 need_root
 : > "$OUT"
 
-say "=== p30t-mt76 device probe ==="
+say "=== android-gki-usb-wifi device probe ==="
 say ""
 
 # ---------------------------------------------------------------- kernel
