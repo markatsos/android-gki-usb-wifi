@@ -12,12 +12,12 @@
 #
 # Optional overrides (env vars):
 #   REPO=user/repo         (default: markatsos/android-gki-usb-wifi)
-#   TAG=v2.0               (release tag holding the modules zip)
+#   TAG=v2.1               (release tag holding the modules zip)
 #   MODS_ZIP=name.zip      (asset filename; default modules.zip)
 #   PROFILE=path           (device-profile.txt from detect.sh)
 
 REPO="${REPO:-markatsos/android-gki-usb-wifi}"
-TAG="${TAG:-v2.0}"
+TAG="${TAG:-v2.1}"
 MODS_ZIP="${MODS_ZIP:-modules.zip}"
 
 HOME_DIR=/data/data/com.termux/files/home
