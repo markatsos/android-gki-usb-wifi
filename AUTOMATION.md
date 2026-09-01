@@ -111,10 +111,22 @@ device (re-run detect.sh shows nothing about CRC, but if the modules later fail
 to load with *"disagrees about version of symbol module_layout"*, the CRC didn't
 match and you should recheck the commit/config).
 
-Download the `wifi-modules` artifact, then either:
-- attach its zip to a release named `modules.zip` and let `install.sh` fetch
-  it, **or**
-- unzip its `.ko` files straight into `/data/data/com.termux/files/home/modules/`.
+The build produces an artifact named **`modules`**, which downloads as
+**`modules.zip`** — the exact name `install.sh` expects. Two ways to use it:
+
+**Option A — via a release (what `install.sh` downloads):**
+1. Download the `modules` artifact from the finished run (it's `modules.zip`).
+2. On **your** fork, create/edit a release and upload `modules.zip` as an asset
+   (keep the name as-is).
+3. Point `install.sh` at your fork:
+   ```
+   REPO=youruser/yourfork TAG=yourtag sh scripts/install.sh
+   ```
+   (If you named the asset something else, pass `MODS_ZIP=yourname.zip` too.)
+
+**Option B — copy the `.ko` manually (skip releases entirely):**
+Unzip `modules.zip` straight into `/data/data/com.termux/files/home/modules/`,
+then start the watcher. No release, no download step needed.
 
 ## Step 4 — install (firmware + loader + boot)
 
