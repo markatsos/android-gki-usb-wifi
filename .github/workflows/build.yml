@@ -17,7 +17,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
-            lz4 cpio kmod git curl zip file
+            lz4 cpio kmod git curl zip file dwarves
+          pahole --version
 
       - name: Fetch kernel source (exact commit)
         run: |
@@ -60,11 +61,10 @@ jobs:
           EOF
 
           make LLVM=1 ARCH=arm64 O=out gki_defconfig
-          ./scripts/config --file out/.config -d DEBUG_INFO_BTF
           make LLVM=1 ARCH=arm64 O=out olddefconfig
 
           echo "--- result ---"
-          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76)" out/.config || echo "MT76 STILL MISSING"
+          grep -E "CONFIG_(CFG80211=|MAC80211=|MT76|DEBUG_INFO_BTF|LTO_CLANG)" out/.config
 
       - name: Add swap
         run: |
@@ -80,6 +80,13 @@ jobs:
         run: |
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           make LLVM=1 ARCH=arm64 O=out -j$(nproc)
+
+      - name: Check module_layout CRC
+        if: always()
+        working-directory: ks
+        run: |
+          echo "--- module_layout CRC in this build ---"
+          grep -w module_layout out/Module.symvers || echo "not found"
 
       - name: Collect modules
         if: always()
