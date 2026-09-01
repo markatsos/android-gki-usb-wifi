@@ -88,6 +88,9 @@ cat ~/alfa-watch.log          # -> [OK] wlan1 is UP in MONITOR mode.
 On **any other device / adapter**, run `detect.sh`, read its verdict, and follow
 [AUTOMATION.md](AUTOMATION.md) to build for your specific kernel.
 
+Hitting an error? See **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — it covers the
+common ones (firmware `-110` timeouts, monitor-mode `SIOCSIWMODE`, CRC mismatch, etc).
+
 ---
 
 ## Demo

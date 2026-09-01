@@ -87,20 +87,51 @@ set_monitor() {
   fi
 }
 
+# Force a clean USB re-enumeration of the adapter. On a busy boot (or marginal
+# OTG power) the firmware upload can time out (-110) and probe fails (-5); a full
+# unbind/rebind of the USB device recovers it faster than waiting for the next
+# watch cycle. $1 = usb device id like "1-1".
+usb_reset() {
+  ud="$1"
+  if [ -e "/sys/bus/usb/devices/$ud" ]; then
+    log "  USB reset ($ud): unbind/rebind to recover firmware upload"
+    echo "$ud" > /sys/bus/usb/drivers/usb/unbind 2>/dev/null
+    sleep 2
+    echo "$ud" > /sys/bus/usb/drivers/usb/bind   2>/dev/null
+    sleep 3
+  fi
+}
+
 # bring the card fully up: load stack if needed, wait for wlan1, set monitor
 bring_up() {
   dev="$1"
-  if ! ip link show wlan1 >/dev/null 2>&1; then
-    stage_fw
-    load_stack "$dev" || return 1
+  # already up? just (re)assert monitor
+  if ip link show wlan1 >/dev/null 2>&1; then set_monitor; return 0; fi
+
+  stage_fw
+  load_stack "$dev" || return 1
+
+  # try up to 3 times: wait for wlan1; if it doesn't show, the firmware upload
+  # likely timed out (-110) - force a USB re-enumeration and retry.
+  attempt=1
+  while [ $attempt -le 3 ]; do
     i=0
-    while [ $i -lt 15 ]; do ip link show wlan1 >/dev/null 2>&1 && break; sleep 1; i=$((i+1)); done
-  fi
-  if ip link show wlan1 >/dev/null 2>&1; then
-    set_monitor
-    return 0
-  fi
-  log "[!] wlan1 did not appear. dmesg | grep -iE 'mt76|firmware'"
+    while [ $i -lt 12 ]; do ip link show wlan1 >/dev/null 2>&1 && break; sleep 1; i=$((i+1)); done
+    if ip link show wlan1 >/dev/null 2>&1; then
+      set_monitor; return 0
+    fi
+    log "[!] wlan1 not up (attempt $attempt/3) - firmware upload may have timed out"
+    usb_reset "$dev"
+    # the card re-enumerates at the same id; module is loaded, so just rebind
+    if [ -e "$DRV" ] && [ ! -e "$DRV/${dev}:1.0" ]; then
+      echo "${dev}:1.0" > "$DRV/bind" 2>/dev/null
+    fi
+    attempt=$((attempt+1))
+  done
+
+  log "[!] wlan1 did not appear after 3 tries. Check: dmesg | grep -iE 'mt76|firmware'"
+  log "    If you see 'firmware upload failed: -110', it's a USB timeout — try a"
+  log "    POWERED OTG hub (the adapter draws more current than OTG alone gives)."
   return 1
 }
 
