@@ -81,8 +81,27 @@ jobs:
       - name: Fetch kernel source (exact commit)
         run: |
           mkdir -p ks
-          curl -sSL "https://android.googlesource.com/kernel/common/+archive/${{ github.event.inputs.kcommit }}.tar.gz" \
-            | tar -xz -C ks
+          URL="https://android.googlesource.com/kernel/common/+archive/${{ github.event.inputs.kcommit }}.tar.gz"
+          # googlesource occasionally drops the HTTP/2 stream mid-transfer, which
+          # gives "unexpected end of file" / "Unexpected EOF in archive". Download
+          # to a file first, verify it, and retry before extracting.
+          ok=0
+          for try in 1 2 3 4 5; do
+            echo "kernel source download, attempt $try ..."
+            rm -f k.tar.gz
+            if curl -fsSL --retry 3 --retry-delay 3 --retry-all-errors \
+                 --http1.1 "$URL" -o k.tar.gz \
+               && gzip -t k.tar.gz 2>/dev/null; then
+              ok=1; break
+            fi
+            echo "  incomplete/corrupt, retrying..."; sleep 5
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::Could not download the kernel source archive after 5 attempts. This is usually a transient googlesource HTTP/2 issue — just re-run the job."
+            exit 1
+          fi
+          tar -xzf k.tar.gz -C ks
+          rm -f k.tar.gz
           ls ks/Makefile && head -3 ks/Makefile
 
       - name: Fetch Android Clang
