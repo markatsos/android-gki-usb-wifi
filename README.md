@@ -143,8 +143,13 @@ choice for next boot):
 
 ![Action button toggling monitor mode](docs/magisk-action.png)
 
-> The Action button needs **Magisk v27+** (or KernelSU). On older Magisk the
-> module still works — just set monitor mode from the NetHunter chroot.
+> The Action button needs **Magisk v27+** (or KernelSU/APatch — the same zip
+> works on all three). On older Magisk the module still works; just set monitor
+> mode from the NetHunter chroot.
+
+If it worked on your device, there's a pre-filled compatibility-report link
+waiting in `/data/adb/modules/gki_usb_wifi_*/report-link.txt` — opening it is
+entirely optional, and nothing is ever sent automatically.
 
 ### B. Scripts (plug-and-play watcher)
 

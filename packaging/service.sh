@@ -114,4 +114,25 @@ else
   log "monitor mode: auto-enable disabled (toggle via Magisk Action button)"
 fi
 
+# Write a pre-filled compatibility-report link to a file for anyone who wants
+# to share their result. Nothing is sent and nothing opens - it just sits here.
+{
+  enc() { printf '%s' "$1" | sed -e 's|%|%25|g' -e 's| |%20|g' -e 's|/|%2F|g' \
+          -e 's|(|%28|g' -e 's|)|%29|g' -e 's|:|%3A|g' -e 's|&|%26|g'; }
+  ADP=""
+  for d in /sys/bus/usb/devices/*/idProduct; do
+    dd=$(dirname "$d"); [ -f "$dd/idVendor" ] || continue
+    id="$(cat "$dd/idVendor"):$(cat "$d")"
+    case "$id" in 0e8d:*|0bda:*|148f:*|0cf3:*|0846:*) ADP="$id";; esac
+  done
+  {
+    echo "If this worked (or didn't) on your device, sharing it helps others"
+    echo "with the same hardware skip the guesswork. Open this link, fill in the"
+    echo "device model, and submit. Nothing is sent automatically."
+    echo ""
+    echo "https://github.com/markatsos/android-gki-usb-wifi/issues/new?template=compatibility.yml&kernel=$(enc "$(uname -r)")&adapter=$(enc "$ADP")"
+  } > "$MODDIR/report-link.txt" 2>/dev/null
+} 2>/dev/null
+log "optional: a pre-filled compatibility-report link is in report-link.txt"
+
 log "done"
