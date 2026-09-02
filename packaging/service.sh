@@ -56,7 +56,12 @@ find_dev() {
     [ "$(cat "$dir/idVendor"):$(cat "$d")" = "$USB_ID" ] && { basename "$dir"; return 0; }
   done; return 1
 }
-dev=$(find_dev) || { log "card not attached; modules ready, will bind on plug-in"; exit 0; }
+dev=$(find_dev)
+if [ -z "$dev" ]; then
+  # No card at boot (the normal case). Skip binding, but DO continue to the
+  # monitor-mode watcher below - it waits for wlan1 to show up on plug-in.
+  log "card not attached; modules ready, will bind on plug-in"
+else
 
 attempt=1
 while [ $attempt -le 3 ]; do
@@ -69,6 +74,7 @@ while [ $attempt -le 3 ]; do
   dev=$(find_dev) || break
   attempt=$((attempt+1))
 done
+fi
 
 # 5) set monitor mode once wlan1 exists AND the Kali chroot is usable.
 #    Runs in the background so boot is never held up; gives up quietly after

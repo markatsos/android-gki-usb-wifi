@@ -11,9 +11,9 @@ setup. Edit the variables at the top of each script if your paths differ.
 
 | Script | What it does | When to use |
 |---|---|---|
-| `alfa-up.sh` | One-shot: stage firmware, load modules (card **unplugged** first, then plug in when prompted), you finish monitor mode inside NetHunter. | Simplest; good for understanding the flow. |
-| `alfa-watch.sh` | Background watcher: detects the card by USB ID (`0e8d:7612`) on plug-in, loads the stack **without tripping the vendor watchdog** (autoprobe off + manual sysfs bind), then sets monitor mode via the Kali chroot automatically. | Day-to-day plug-and-play. Start once per boot (or via `alfa-boot.sh`). |
-| `alfa-boot.sh` | Magisk `service.d` script that auto-starts `alfa-watch.sh` after boot. Boot-safe: waits for `sys.boot_completed`, settle delay, backgrounded, kill-switch. | Place in `/data/adb/service.d/` for zero-touch. See warnings in the main README. |
+| `usbwifi-up.sh` | One-shot: stage firmware, load modules (card **unplugged** first, then plug in when prompted), you finish monitor mode inside NetHunter. | Simplest; good for understanding the flow. |
+| `usbwifi-watch.sh` | Background watcher: detects the card by USB ID (`0e8d:7612`) on plug-in, loads the stack **without tripping the vendor watchdog** (autoprobe off + manual sysfs bind), then sets monitor mode via the Kali chroot automatically. | Day-to-day plug-and-play. Start once per boot (or via `usbwifi-boot.sh`). |
+| `usbwifi-boot.sh` | Magisk `service.d` script that auto-starts `usbwifi-watch.sh` after boot. Boot-safe: waits for `sys.boot_completed`, settle delay, backgrounded, kill-switch. | Place in `/data/adb/service.d/` for zero-touch. See warnings in the main README. |
 
 ## The watchdog trick
 
@@ -26,9 +26,9 @@ Unisoc's `native_hang_monitor` panics the kernel if a module's `init` takes
 4. `echo 1-1:1.0 > /sys/bus/usb/drivers/mt76x2u/bind` — the slow firmware
    upload happens here, outside the watchdog-timed `module_init` path
 
-## Kill-switch (for alfa-boot.sh)
+## Kill-switch (for usbwifi-boot.sh)
 
 ```
-touch /data/adb/alfa-disable    # disable auto-start
-rm    /data/adb/alfa-disable    # re-enable
+touch /data/adb/usbwifi-disable    # disable auto-start
+rm    /data/adb/usbwifi-disable    # re-enable
 ```

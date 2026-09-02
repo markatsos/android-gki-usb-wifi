@@ -105,32 +105,73 @@ matching source, no build can produce loadable modules — a hard limit, not a b
 
 ---
 
-## Quick install (reference device: Teclast P30T / UMS9230)
+## Install
 
-Prebuilt modules for that exact kernel are attached to the
-[latest release](../../releases/latest). In Termux, rooted (Magisk):
+Two ways. **A** is the easiest (flash once, done). **B** gives you the
+plug-and-play watcher with automatic retries. You can use either; don't run both
+loaders at the same time.
+
+### A. Magisk / KernelSU module (recommended)
+
+Prebuilt modules for the reference kernel are attached to the
+[latest release](../../releases/latest). If your `uname -r` matches the one in
+[COMPATIBILITY.md](COMPATIBILITY.md) exactly, use it directly; otherwise build
+your own first (see [AUTOMATION.md](AUTOMATION.md)) — the workflow's artifact
+**is** the flashable zip, no extracting needed.
+
+1. Download the module zip (release asset, or the `gki-usb-wifi-<commit>-<driver>`
+   build artifact).
+2. **Magisk Manager → Modules → Install from storage** → pick the zip.
+3. Reboot, unlock the device, then plug the adapter in.
+
+The module shows up with an **Action** button:
+
+![The module in Magisk, with the Action button](docs/magisk-module.png)
+
+It loads the driver stack at boot (safely — USB autoprobe off, then sysfs bind,
+so the vendor watchdog can't panic), stages the firmware, and brings `wlan1` up
+in monitor mode on its own. Check what it did:
+
+```
+su
+cat /data/adb/modules/gki_usb_wifi_*/load.log
+ip link show wlan1        # monitor mode shows: link/ieee802.11/radiotap
+```
+
+Press **Action** any time to toggle monitor ↔ managed (it also remembers the
+choice for next boot):
+
+![Action button toggling monitor mode](docs/magisk-action.png)
+
+> The Action button needs **Magisk v27+** (or KernelSU). On older Magisk the
+> module still works — just set monitor mode from the NetHunter chroot.
+
+### B. Scripts (plug-and-play watcher)
 
 ```
 pkg install git curl unzip
 git clone https://github.com/markatsos/android-gki-usb-wifi
 cd android-gki-usb-wifi
 su
-sh scripts/detect.sh          # confirms your device matches
-sh scripts/install.sh         # pulls modules + firmware, sets up auto-load
+sh scripts/detect.sh          # confirms your device + adapter
+sh scripts/install.sh         # modules + firmware + boot script, starts the watcher
 ```
 
-Then start it (or reboot) and plug in the adapter:
+Then plug the adapter in; the watcher loads the stack, retries on firmware
+timeouts, and sets monitor mode via the Kali chroot:
 
 ```
-nohup sh ~/alfa-watch.sh >~/alfa-watch.log 2>&1 &
-cat ~/alfa-watch.log          # -> [OK] wlan1 is UP in MONITOR mode.
+cat ~/usbwifi-watch.log       # -> [OK] wlan1 is UP in MONITOR mode.
 ```
+
+`iw` / `airodump-ng` live in the NetHunter (Kali) chroot — **open the NetHunter
+app once per boot** before capturing, so the chroot mounts are active.
 
 On **any other device / adapter**, run `detect.sh`, read its verdict, and follow
 [AUTOMATION.md](AUTOMATION.md) to build for your specific kernel.
+Starting fresh? See [CLEAN-REINSTALL.md](CLEAN-REINSTALL.md).
 
-Hitting an error? See **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — it covers the
-common ones (firmware `-110` timeouts, monitor-mode `SIOCSIWMODE`, CRC mismatch, etc).
+Hitting an error? See **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
 
 ---
 
@@ -208,11 +249,15 @@ See [`scripts/README.md`](scripts/README.md).
 
 | Script | Role |
 |---|---|
-| `detect.sh` | Probe device + adapter; write `device-profile.txt`; verdict. Read-only. |
-| `install.sh` | Download modules (release) + firmware; install loader + boot script. |
-| `alfa-watch.sh` | Plug-triggered loader; sets monitor mode via the Kali chroot. |
-| `alfa-boot.sh` | Magisk `service.d` auto-start (waits for unlock; kill-switch). |
-| `alfa-up.sh` | Manual one-shot loader. |
+| `detect.sh` | Probe device + adapter; write `device-profile.txt`; verdict + a pre-filled compatibility-report link. Read-only, no telemetry. |
+| `install.sh` | Download modules (release) + firmware; install loader + boot script; migrates older layouts. |
+| `usbwifi-watch.sh` | Plug-triggered loader; USB-reset retry on firmware timeouts; sets monitor mode via the Kali chroot. |
+| `usbwifi-boot.sh` | Magisk `service.d` auto-start (waits for unlock; kill-switch `/data/adb/usbwifi-disable`). |
+| `usbwifi-up.sh` | Manual one-shot loader. |
+| `isolate-wlan1.sh` | **Experimental**: keep Android's Wi-Fi framework off `wlan1` during captures. |
+
+The Magisk module ships its own `service.sh` (boot loader) and `action.sh`
+(the monitor-mode toggle button).
 
 ---
 
@@ -233,7 +278,7 @@ See [`scripts/README.md`](scripts/README.md).
 - **Out-of-tree Realtek (`rtl88xxau_oot`) may not build** on every kernel — it
   depends on an external driver repo supporting your version.
 - **Boot auto-start** waits for the device to be unlocked (CE storage) before
-  loading; it's boot-safe and has a kill-switch (`touch /data/adb/alfa-disable`).
+  loading; it's boot-safe and has a kill-switch (`touch /data/adb/usbwifi-disable`).
   Keep `adb` handy the first time.
 - Boot with the card unplugged, then plug it in after unlock.
 - OTG gives limited current; use a **powered OTG hub** if you see drops under load.

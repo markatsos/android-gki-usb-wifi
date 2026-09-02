@@ -111,8 +111,15 @@ device (re-run detect.sh shows nothing about CRC, but if the modules later fail
 to load with *"disagrees about version of symbol module_layout"*, the CRC didn't
 match and you should recheck the commit/config).
 
-The build produces an artifact named **`modules`**, which downloads as
-**`modules.zip`** — the exact name `install.sh` expects. Two ways to use it:
+The build produces **two** artifacts:
+
+- **`gki-usb-wifi-<commit>-<driver>`** — downloads as a zip that is **already a
+  flashable Magisk/KernelSU module**. Don't extract it; flash it directly in
+  Magisk Manager → Modules → Install from storage. Easiest path.
+- **`modules`** — downloads as `modules.zip` with the raw `.ko` files, the name
+  `install.sh` expects if you prefer the script route.
+
+Using the raw modules, two ways:
 
 **Option A — via a release (what `install.sh` downloads):**
 1. Download the `modules` artifact from the finished run (it's `modules.zip`).
@@ -159,9 +166,9 @@ boot auto-start. It never deploys a custom `cfg80211.ko`.
 
 
 ```
-nohup sh ~/alfa-watch.sh >~/alfa-watch.log 2>&1 &
+nohup sh ~/usbwifi-watch.sh >~/usbwifi-watch.log 2>&1 &
 # plug in the adapter; wlan1 comes up in monitor mode automatically
-cat ~/alfa-watch.log        # look for: [OK] wlan1 is UP in MONITOR mode.
+cat ~/usbwifi-watch.log        # look for: [OK] wlan1 is UP in MONITOR mode.
 ```
 
 `iw`/`airodump-ng` live in the NetHunter (Kali) chroot; the watcher already sets
@@ -175,8 +182,8 @@ the watcher once per boot as above.
 If auto-start ever misbehaves:
 
 ```
-touch /data/adb/alfa-disable   # disable
-rm    /data/adb/alfa-disable   # re-enable
+touch /data/adb/usbwifi-disable   # disable
+rm    /data/adb/usbwifi-disable   # re-enable
 ```
 
 ## What detect.sh reads (changes nothing)

@@ -4,7 +4,7 @@ Common problems, what the log/dmesg looks like, and how to fix them. Check the
 watcher log first:
 
 ```
-cat /data/data/com.termux/files/home/alfa-watch.log
+cat /data/data/com.termux/files/home/usbwifi-watch.log
 ```
 
 and kernel messages:
@@ -31,7 +31,7 @@ active.
 1. Open the **NetHunter app once** this session (activates the chroot mounts).
 2. Let the watcher set monitor mode (it uses `iw` in the chroot). Confirm:
    ```
-   cat ~/alfa-watch.log     # -> [OK] wlan1 is UP in MONITOR mode.
+   cat ~/usbwifi-watch.log     # -> [OK] wlan1 is UP in MONITOR mode.
    ```
 3. Then in NetHunter, run `airodump-ng wlan1` **without** letting it change the
    mode. If it still complains, set it manually first:
@@ -132,10 +132,10 @@ USB driver with the card already attached on a Unisoc device.
 **Cause (old):** the boot script started before the encrypted Termux storage was
 unlocked, so it couldn't find the scripts/modules.
 
-**Fix:** already handled — `alfa-boot.sh` now waits for the device to be unlocked
+**Fix:** already handled — `usbwifi-boot.sh` now waits for the device to be unlocked
 before starting. If you still hit it, make sure:
 - you **unlock** the device after reboot (the script waits for that)
-- the kill-switch isn't set: `ls /data/adb/alfa-disable` (delete it if present)
+- the kill-switch isn't set: `ls /data/adb/usbwifi-disable` (delete it if present)
 
 ---
 
@@ -156,7 +156,7 @@ Collect these and open an issue:
 ```
 su
 uname -r
-cat ~/alfa-watch.log
+cat ~/usbwifi-watch.log
 dmesg | grep -iE "mt76|firmware|usb 1-1|wlan|native_hang" | tail -40
 sh scripts/detect.sh        # paste device-profile.txt too
 ```
