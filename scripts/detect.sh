@@ -187,6 +187,8 @@ for d in /sys/bus/usb/devices/*/idProduct; do
   case "$id" in
     0e8d:*|0bda:*|148f:*|0cf3:*|0846:*|0b05:*|057c:*|07d1:*|2001:*|2357:*|040d:*|13b1:*|083a:*|0e66:*|040d:*)
       FOUND="$id"
+      USB_ID_FOUND="$id"
+      CHIPSET_DESC="$desc"
       kv "usb_wifi_found" "$id at $(basename "$dir")"
       kv "  chipset"      "$desc"
       kv "  driver"       "$drv"
@@ -260,3 +262,28 @@ fi
 
 say ""
 say "Wrote $OUT - paste its values into the GitHub Actions 'Run workflow' inputs."
+
+# ---------------------------------------------------- share your result
+# Opt-in, zero telemetry: we do NOT send anything. We only PRINT a pre-filled
+# GitHub issue link. You open it, review exactly what it contains, and submit it
+# yourself (or don't). This is how the community compatibility list grows.
+urlenc() {
+  # minimal urlencode for the short fields
+  printf '%s' "$1" | sed -e 's|%|%25|g' -e 's| |%20|g' -e 's|/|%2F|g' \
+      -e 's|(|%28|g' -e 's|)|%29|g' -e 's|:|%3A|g' -e 's|&|%26|g' \
+      -e 's|+|%2B|g' -e 's|#|%23|g' -e 's|,|%2C|g'
+}
+
+REPO_URL="https://github.com/markatsos/android-gki-usb-wifi"
+say ""
+say "=== SHARE YOUR RESULT (optional) ==="
+say "Nothing is sent automatically. If you'd like to add your device to the"
+say "public compatibility list, open this link, check the pre-filled fields,"
+say "paste the output above into the last box, and submit:"
+say ""
+DEV_Q=$(urlenc "${KREL%%-*} device - fill in model/SoC")
+KER_Q=$(urlenc "$KREL")
+ADP_Q=$(urlenc "${USB_ID_FOUND:-unknown} ${CHIPSET_DESC:-}")
+say "$REPO_URL/issues/new?template=compatibility.yml&kernel=$KER_Q&adapter=$ADP_Q"
+say ""
+say "(Your device-profile.txt is at: $OUT)"

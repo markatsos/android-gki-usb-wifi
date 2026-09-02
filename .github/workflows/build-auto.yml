@@ -43,6 +43,9 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout repo (needed for packaging/ templates)
+        uses: actions/checkout@v4
+
       - name: Show inputs
         run: |
           echo "branch  = ${{ github.event.inputs.kbranch }}"
