@@ -52,3 +52,23 @@ fi
 
 new=$(iwc dev wlan1 info | grep -o 'type [a-z]*' | head -1 | cut -d' ' -f2)
 echo "now: ${new:-unknown}"
+
+# --- optional: share that this works on your device -----------------------
+# Nothing is sent from here. This just prints (and offers to open) a GitHub
+# issue form with your kernel/adapter pre-filled, so others with the same
+# device can skip the guesswork.
+enc() { printf '%s' "$1" | sed -e 's|%|%25|g' -e 's| |%20|g' -e 's|/|%2F|g' \
+        -e 's|(|%28|g' -e 's|)|%29|g' -e 's|:|%3A|g' -e 's|&|%26|g'; }
+KREL="$(uname -r)"
+ADP="$(cat /sys/bus/usb/devices/*/idVendor 2>/dev/null >/dev/null; echo)"
+for d in /sys/bus/usb/devices/*/idProduct; do
+  dir=$(dirname "$d"); [ -f "$dir/idVendor" ] || continue
+  id="$(cat "$dir/idVendor"):$(cat "$d")"
+  case "$id" in 0e8d:*|0bda:*|148f:*|0cf3:*|0846:*) ADP="$id";; esac
+done
+URL="https://github.com/markatsos/android-gki-usb-wifi/issues/new?template=compatibility.yml&kernel=$(enc "$KREL")&adapter=$(enc "$ADP")"
+echo ""
+echo "--- share your result (optional) ---"
+echo "Opening a pre-filled report form; review it and submit if you want."
+am start -a android.intent.action.VIEW -d "$URL" >/dev/null 2>&1 \
+  || { echo "Open this manually:"; echo "$URL"; }

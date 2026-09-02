@@ -323,6 +323,9 @@ jobs:
           cp packaging/uninstall.sh "$PKG/uninstall.sh"
           cp packaging/action.sh "$PKG/action.sh"
           chmod 755 "$PKG/service.sh" "$PKG/uninstall.sh" "$PKG/action.sh"
+          # KernelSU/APatch read the same module.prop; declaring actionIcon is
+          # harmless on Magisk and makes the Action button show on KernelSU.
+          echo "actionIcon=" >> "$PKG/module.prop"
 
           # minimal updater-script so it flashes in Magisk/KernelSU/APatch
           cat > "$PKG/META-INF/com/google/android/update-binary" <<'UB'

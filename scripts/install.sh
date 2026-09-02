@@ -12,12 +12,12 @@
 #
 # Optional overrides (env vars):
 #   REPO=user/repo         (default: markatsos/android-gki-usb-wifi)
-#   TAG=v2.1               (release tag holding the modules zip)
+#   TAG=v3.0               (release tag holding the modules zip)
 #   MODS_ZIP=name.zip      (asset filename; default modules.zip)
 #   PROFILE=path           (device-profile.txt from detect.sh)
 
 REPO="${REPO:-markatsos/android-gki-usb-wifi}"
-TAG="${TAG:-v2.1}"
+TAG="${TAG:-v3.0}"
 MODS_ZIP="${MODS_ZIP:-modules.zip}"
 
 HOME_DIR=/data/data/com.termux/files/home
@@ -145,6 +145,11 @@ echo "[OK] Done. The watcher is running."
 echo "     - If the adapter is plugged in, wlan1 should be in monitor mode now:"
 echo "         cat $HOME_DIR/usbwifi-watch.log"
 echo "     - If not, just plug it in; it loads automatically."
+echo ""
+# offer the (opt-in) compatibility report
+if [ -f "./scripts/report.sh" ]; then sh ./scripts/report.sh
+elif [ -f "./report.sh" ];        then sh ./report.sh; fi
+
 echo ""
 echo "     NOTE: open the NetHunter app once this session before using airodump/"
 echo "     aireplay, so the Kali chroot mounts are active (monitor mode is set"
