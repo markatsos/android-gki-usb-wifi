@@ -272,6 +272,7 @@ jobs:
           echo "--- collected ---"; ls -la ko/
 
       - name: Package Magisk/KernelSU module
+        id: pkg
         if: always()
         run: |
           set -e
@@ -335,18 +336,22 @@ jobs:
           UB
           echo "#MAGISK" > "$PKG/META-INF/com/google/android/updater-script"
 
-          ZIPNAME="gki-usb-wifi-${SHORT}-${DRIVER}.zip"
-          (cd "$PKG" && zip -r "../$ZIPNAME" . >/dev/null)
-          echo "Built $ZIPNAME"
-          ls -la "$ZIPNAME"
-          mkdir -p out_zip && mv "$ZIPNAME" out_zip/
+          # Do NOT zip here: actions/upload-artifact zips the folder contents for
+          # us, so the downloaded file is already a flashable Magisk module
+          # (module.prop/service.sh at the archive root). Zipping ourselves would
+          # produce a zip-inside-a-zip that users must extract first.
+          echo "module tree ready:"
+          find "$PKG" -maxdepth 2 -type f | sort
+          echo "zipname=gki-usb-wifi-${SHORT}-${DRIVER}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Magisk module zip
+      - name: Upload Magisk module (flashable as-is)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: magisk-module
-          path: out_zip/
+          # The downloaded file is named after this and contains the module tree
+          # at its root -> flash it directly in Magisk/KernelSU, no extracting.
+          name: ${{ steps.pkg.outputs.zipname || 'magisk-module' }}
+          path: pkg/
 
       - uses: actions/upload-artifact@v4
         if: always()
