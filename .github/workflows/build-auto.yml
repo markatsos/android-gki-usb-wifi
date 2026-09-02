@@ -249,6 +249,82 @@ jobs:
           cp ks/out/Module.symvers ko/ 2>/dev/null || true
           echo "--- collected ---"; ls -la ko/
 
+      - name: Package Magisk/KernelSU module
+        if: always()
+        run: |
+          set -e
+          COMMIT="${{ github.event.inputs.kcommit }}"
+          SHORT="$(echo "$COMMIT" | cut -c1-12)"
+          DRIVER="${{ github.event.inputs.driver }}"
+
+          # map driver -> USB bind name + firmware files to bundle
+          case "$DRIVER" in
+            mt76x2u)  DRVNAME=mt76x2u;  LEAF=mt76x2u.ko;  FW="mediatek/mt7662.bin mediatek/mt7662_rom_patch.bin"; USBID="0e8d:7612" ;;
+            mt76x0u)  DRVNAME=mt76x0u;  LEAF=mt76x0u.ko;  FW="mediatek/mt7610u.bin"; USBID="0e8d:7610" ;;
+            rt2800usb) DRVNAME=rt2800usb; LEAF=rt2800usb.ko; FW=""; USBID="148f:5370" ;;
+            ath9k_htc) DRVNAME=ath9k_htc; LEAF=ath9k_htc.ko; FW="ath9k_htc/htc_9271-1.4.0.fw ath9k_htc/htc_7010-1.4.0.fw"; USBID="0cf3:9271" ;;
+            rtl8xxxu) DRVNAME=rtl8xxxu; LEAF=rtl8xxxu.ko; FW=""; USBID="0bda:8178" ;;
+            *) echo "packaging: unsupported driver $DRIVER for Magisk zip (in-tree only)"; exit 0 ;;
+          esac
+
+          PKG="pkg"
+          rm -rf "$PKG"; mkdir -p "$PKG/modules" "$PKG/firmware" "$PKG/META-INF/com/google/android"
+
+          # modules from the collected ko/ dir
+          cp ko/*.ko "$PKG/modules/" 2>/dev/null || true
+          rm -f "$PKG/modules/cfg80211.ko"   # never ship a custom cfg80211
+          cp ko/Module.symvers "$PKG/modules/" 2>/dev/null || true
+
+          # firmware (fetched from linux-firmware)
+          LF="https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main"
+          for f in $FW; do
+            out="$PKG/firmware/$(basename "$f")"
+            curl -fsSL "$LF/$f" -o "$out" && echo "fw: $(basename "$f")" || echo "WARN: fw $f missing"
+          done
+
+          # module.prop (your design - commit hash in id/version, warning in desc)
+          cat > "$PKG/module.prop" <<PROP
+          id=gki_usb_wifi_${SHORT}_${DRIVER}
+          name=GKI USB Wi-Fi (${DRIVER})
+          version=${SHORT}
+          versionCode=1
+          author=markatsos
+          description=Loads ${DRIVER} on kernel ACK commit ${SHORT}. DO NOT flash on a different kernel — module_layout CRC must match or it won't load.
+          PROP
+
+          # service.sh from template, with placeholders filled
+          sed -e "s|__USB_ID__|$USBID|" \
+              -e "s|__DRV_KO__|$LEAF|" \
+              -e "s|__DRV_NAME__|$DRVNAME|" \
+              packaging/service.sh > "$PKG/service.sh"
+          cp packaging/uninstall.sh "$PKG/uninstall.sh"
+          chmod 755 "$PKG/service.sh" "$PKG/uninstall.sh"
+
+          # minimal updater-script so it flashes in Magisk/KernelSU/APatch
+          cat > "$PKG/META-INF/com/google/android/update-binary" <<'UB'
+          #!/sbin/sh
+          # Magisk module installer shim
+          umask 022
+          OUTFD=$2; ZIP=$3
+          . /data/adb/magisk/util_functions.sh 2>/dev/null || true
+          install_module
+          exit 0
+          UB
+          echo "#MAGISK" > "$PKG/META-INF/com/google/android/updater-script"
+
+          ZIPNAME="gki-usb-wifi-${SHORT}-${DRIVER}.zip"
+          (cd "$PKG" && zip -r "../$ZIPNAME" . >/dev/null)
+          echo "Built $ZIPNAME"
+          ls -la "$ZIPNAME"
+          mkdir -p out_zip && mv "$ZIPNAME" out_zip/
+
+      - name: Upload Magisk module zip
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magisk-module
+          path: out_zip/
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
