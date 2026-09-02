@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / help (not a bug)
+    url: https://github.com/markatsos/android-gki-usb-wifi/blob/main/TROUBLESHOOTING.md
+    about: Check TROUBLESHOOTING.md first for the common issues.

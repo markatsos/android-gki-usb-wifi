@@ -1,0 +1,93 @@
+name: Compatibility report
+description: Report a working / partial / failing device + adapter combo
+title: "[Report]: <device> + <adapter>"
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! This builds the community compatibility list.
+        Please paste the **full** `detect.sh` output — it has almost everything
+        needed. Run it with: `su -c 'sh scripts/detect.sh'`.
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model & SoC
+      placeholder: "e.g. Teclast P30T (Unisoc UMS9230 / T615)"
+    validations:
+      required: true
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel string (uname -r)
+      placeholder: "e.g. 5.15.178-android13-8-00012-g4ea0fcb5d130-ab13530115"
+    validations:
+      required: true
+
+  - type: input
+    id: adapter
+    attributes:
+      label: USB adapter, chipset & USB ID
+      placeholder: "e.g. ALFA AWUS036ACM — MT7612U — 0e8d:7612"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: driver
+    attributes:
+      label: Driver used
+      options:
+        - mt76x2u
+        - mt76x0u
+        - rt2800usb
+        - ath9k_htc
+        - rtl8xxxu
+        - rtl88xxau_oot
+        - other / unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Result
+      options:
+        - "Working — monitor mode confirmed"
+        - "Working — monitor mode AND injection confirmed (aireplay --test)"
+        - "Partial — loads but drops / power / instability"
+        - "Failed — CRC mismatch (disagrees about symbol module_layout)"
+        - "Failed — firmware -110 / probe error"
+        - "Failed — kernel panic"
+        - "Failed — other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install?
+      options:
+        - "install.sh (release modules)"
+        - "Built my own via the workflow"
+        - "Magisk/KernelSU flashable zip"
+    validations:
+      required: true
+
+  - type: textarea
+    id: detect
+    attributes:
+      label: Full detect.sh output
+      description: "su -c 'sh scripts/detect.sh' — paste everything"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: "Powered hub needed? NetHunter version? dmesg snippets? Workarounds?"
+    validations:
+      required: false
