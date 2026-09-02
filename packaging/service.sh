@@ -69,4 +69,43 @@ while [ $attempt -le 3 ]; do
   dev=$(find_dev) || break
   attempt=$((attempt+1))
 done
+
+# 5) set monitor mode once wlan1 exists AND the Kali chroot is usable.
+#    Runs in the background so boot is never held up; gives up quietly after
+#    ~10 min (e.g. NetHunter never opened this session).
+CHROOT_BIN=/data/data/com.termux/files/usr/bin/chroot
+ROOTFS=/data/local/nhsystem/kali-arm64
+IW=/usr/sbin/iw
+
+set_monitor_bg() {
+  (
+    i=0
+    while [ $i -lt 300 ]; do          # up to ~10 min
+      if ip link show wlan1 >/dev/null 2>&1 \
+         && [ -x "$CHROOT_BIN" ] && [ -e "$ROOTFS$IW" ]; then
+        ip link set wlan1 down 2>/dev/null
+        "$CHROOT_BIN" "$ROOTFS" "$IW" dev wlan1 set type monitor 2>/dev/null
+        ip link set wlan1 up 2>/dev/null
+        m=$("$CHROOT_BIN" "$ROOTFS" "$IW" dev wlan1 info 2>/dev/null | grep -o 'type monitor')
+        if [ "$m" = "type monitor" ]; then
+          log "wlan1 set to MONITOR mode"
+          return 0
+        fi
+      fi
+      sleep 2; i=$((i+1))
+    done
+    log "monitor mode not set (wlan1 or Kali chroot unavailable) - use the Action button in Magisk, or set it manually"
+  ) &
+}
+
+# only try if the module is configured to auto-enable monitor (default: yes)
+AUTOMON="$MODDIR/automonitor"
+[ -f "$AUTOMON" ] || echo 1 > "$AUTOMON"
+if [ "$(cat "$AUTOMON" 2>/dev/null)" = "1" ]; then
+  set_monitor_bg
+  log "monitor mode: auto-enable requested (background)"
+else
+  log "monitor mode: auto-enable disabled (toggle via Magisk Action button)"
+fi
+
 log "done"

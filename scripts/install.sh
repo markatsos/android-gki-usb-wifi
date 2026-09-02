@@ -48,8 +48,23 @@ if [ -d "$OLD_MOD" ] && [ "$OLD_MOD" != "$MODDIR" ]; then
   echo "[*] Migrating: removing old module dir $OLD_MOD"
   rm -rf "$OLD_MOD"
 fi
+# v2.x used alfa-* script names; v3 uses generic usbwifi-*. Remove the old ones
+# (and the old boot script) so two loaders can't fight over the same device.
+for old in "$HOME_DIR/alfa-watch.sh" "$HOME_DIR/alfa-up.sh" "$HOME_DIR/alfa-watch.log"; do
+  [ -e "$old" ] && { echo "[*] Migrating: removing $old"; rm -f "$old"; }
+done
+if [ -f /data/adb/service.d/alfa-boot.sh ]; then
+  echo "[*] Migrating: removing old /data/adb/service.d/alfa-boot.sh"
+  rm -f /data/adb/service.d/alfa-boot.sh
+fi
+# carry over an old kill-switch if the user had one
+if [ -f /data/adb/alfa-disable ] && [ ! -f /data/adb/usbwifi-disable ]; then
+  mv /data/adb/alfa-disable /data/adb/usbwifi-disable
+  echo "[*] Migrating: kill-switch moved to /data/adb/usbwifi-disable"
+fi
+pkill -f alfa-watch.sh 2>/dev/null
 # stop any running watcher so it reloads with the new paths
-pkill -f alfa-watch.sh 2>/dev/null && echo "[*] Stopped running watcher (will restart with new paths)"
+pkill -f usbwifi-watch.sh 2>/dev/null && echo "[*] Stopped running watcher (will restart with new paths)"
 
 echo "=== install: $REPO @ $TAG ==="
 
@@ -99,36 +114,36 @@ SRC_WATCH=""; SRC_BOOT=""
 # clone (e.g. ~/p30t-mt76) can't shadow the fresh scripts. Old repo folder is
 # only a last resort.
 for base in "." ".." "$HOME_DIR/android-gki-usb-wifi"; do
-  if [ -f "$base/scripts/alfa-watch.sh" ]; then SRC_WATCH="$base/scripts/alfa-watch.sh"; fi
-  if [ -f "$base/scripts/alfa-boot.sh" ];  then SRC_BOOT="$base/scripts/alfa-boot.sh"; fi
+  if [ -f "$base/scripts/usbwifi-watch.sh" ]; then SRC_WATCH="$base/scripts/usbwifi-watch.sh"; fi
+  if [ -f "$base/scripts/usbwifi-boot.sh" ];  then SRC_BOOT="$base/scripts/usbwifi-boot.sh"; fi
   [ -n "$SRC_WATCH" ] && [ -n "$SRC_BOOT" ] && break
 done
 RAW="https://raw.githubusercontent.com/$REPO/main/scripts"
 
-if [ -n "$SRC_WATCH" ]; then cp "$SRC_WATCH" "$HOME_DIR/alfa-watch.sh"
-else curl -fsSL "$RAW/alfa-watch.sh" -o "$HOME_DIR/alfa-watch.sh"; fi
-chmod +x "$HOME_DIR/alfa-watch.sh"
+if [ -n "$SRC_WATCH" ]; then cp "$SRC_WATCH" "$HOME_DIR/usbwifi-watch.sh"
+else curl -fsSL "$RAW/usbwifi-watch.sh" -o "$HOME_DIR/usbwifi-watch.sh"; fi
+chmod +x "$HOME_DIR/usbwifi-watch.sh"
 
 if [ -d /data/adb/service.d ]; then
-  if [ -n "$SRC_BOOT" ]; then cp "$SRC_BOOT" /data/adb/service.d/alfa-boot.sh
-  else curl -fsSL "$RAW/alfa-boot.sh" -o /data/adb/service.d/alfa-boot.sh; fi
-  chmod 755 /data/adb/service.d/alfa-boot.sh
+  if [ -n "$SRC_BOOT" ]; then cp "$SRC_BOOT" /data/adb/service.d/usbwifi-boot.sh
+  else curl -fsSL "$RAW/usbwifi-boot.sh" -o /data/adb/service.d/usbwifi-boot.sh; fi
+  chmod 755 /data/adb/service.d/usbwifi-boot.sh
   echo "[*] Boot auto-start installed (Magisk)."
-  echo "    Kill-switch: touch /data/adb/alfa-disable   (rm to re-enable)"
+  echo "    Kill-switch: touch /data/adb/usbwifi-disable   (rm to re-enable)"
 else
   echo "[i] No Magisk service.d - start the watcher manually (below)."
 fi
 
 # --- start the watcher now so it's live immediately -----------------------
 echo "[*] Starting watcher..."
-pkill -f alfa-watch.sh 2>/dev/null
-nohup sh "$HOME_DIR/alfa-watch.sh" > "$HOME_DIR/alfa-watch.log" 2>&1 &
+pkill -f usbwifi-watch.sh 2>/dev/null
+nohup sh "$HOME_DIR/usbwifi-watch.sh" > "$HOME_DIR/usbwifi-watch.log" 2>&1 &
 sleep 2
 
 echo ""
 echo "[OK] Done. The watcher is running."
 echo "     - If the adapter is plugged in, wlan1 should be in monitor mode now:"
-echo "         cat $HOME_DIR/alfa-watch.log"
+echo "         cat $HOME_DIR/usbwifi-watch.log"
 echo "     - If not, just plug it in; it loads automatically."
 echo ""
 echo "     NOTE: open the NetHunter app once this session before using airodump/"

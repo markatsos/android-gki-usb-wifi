@@ -1,18 +1,18 @@
 #!/system/bin/sh
-# alfa-watch.sh - Plug-triggered loader + auto monitor-mode for AWUS036ACM
+# usbwifi-watch.sh - Plug-triggered loader + auto monitor-mode for AWUS036ACM
 # (MT7612U) on Teclast P30T (UMS9230), NetHunter/Kali chroot.
 #
-# Polls USB; when the Alfa card (0e8d:7612) appears it loads the mt76 stack
+# Polls USB; when the USB Wi-Fi adapter (0e8d:7612) appears it loads the mt76 stack
 # with USB autoprobe DISABLED (module_init returns instantly, never tripping
 # the native_hang_monitor watchdog), binds the card manually via sysfs
 # (firmware upload happens here, outside the watchdog), then enters the Kali
 # chroot to put wlan1 into monitor mode.
 #
 # Run once per session as root (or via the Magisk boot script):
-#   nohup sh /data/data/com.termux/files/home/alfa-watch.sh \
-#     >/data/data/com.termux/files/home/alfa-watch.log 2>&1 &
-# Stop:  pkill -f alfa-watch.sh
-# Log:   cat /data/data/com.termux/files/home/alfa-watch.log
+#   nohup sh /data/data/com.termux/files/home/usbwifi-watch.sh \
+#     >/data/data/com.termux/files/home/usbwifi-watch.log 2>&1 &
+# Stop:  pkill -f usbwifi-watch.sh
+# Log:   cat /data/data/com.termux/files/home/usbwifi-watch.log
 
 MODDIR=/data/data/com.termux/files/home/modules
 FWDIR=/data/local/tmp/fw
@@ -136,7 +136,7 @@ bring_up() {
 }
 
 stage_fw
-log "Watching for Alfa card ($USB_ID)..."
+log "Watching for USB Wi-Fi adapter ($USB_ID)..."
 ACTIVE=0
 
 while true; do

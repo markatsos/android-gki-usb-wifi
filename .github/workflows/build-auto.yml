@@ -320,7 +320,8 @@ jobs:
               -e "s|__DRV_NAME__|$DRVNAME|" \
               packaging/service.sh > "$PKG/service.sh"
           cp packaging/uninstall.sh "$PKG/uninstall.sh"
-          chmod 755 "$PKG/service.sh" "$PKG/uninstall.sh"
+          cp packaging/action.sh "$PKG/action.sh"
+          chmod 755 "$PKG/service.sh" "$PKG/uninstall.sh" "$PKG/action.sh"
 
           # minimal updater-script so it flashes in Magisk/KernelSU/APatch
           cat > "$PKG/META-INF/com/google/android/update-binary" <<'UB'

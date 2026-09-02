@@ -1,12 +1,12 @@
 #!/system/bin/sh
-# alfa-up.sh — Load MT7612U (AWUS036ACM) stack on Teclast P30T (UMS9230)
+# usbwifi-up.sh — Load MT7612U (AWUS036ACM) stack on Teclast P30T (UMS9230)
 # Run as root AFTER a reboot. See the warning about card order below.
 #
 # Usage:
 #   su
-#   sh /data/local/tmp/alfa-up.sh
+#   sh /data/local/tmp/usbwifi-up.sh
 #
-# IMPORTANT: unplug the Alfa card before running this. The script loads the
+# IMPORTANT: unplug the USB Wi-Fi adapter before running this. The script loads the
 # modules first (fast), then tells you to plug the card in. Loading with the
 # card already attached triggers the vendor watchdog (native_hang_monitor)
 # and panics the kernel.

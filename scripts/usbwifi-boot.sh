@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# alfa-boot.sh - Magisk service.d boot script.
+# usbwifi-boot.sh - Magisk service.d boot script.
 # Auto-starts the Alfa watcher once the device is actually usable.
 #
 # Boot-safe by design:
@@ -11,14 +11,14 @@
 #   - backgrounds everything so nothing here can stall boot
 #   - honors a persistent kill-switch
 #
-# INSTALL: /data/adb/service.d/alfa-boot.sh  (chmod 755)
-# DISABLE: touch /data/adb/alfa-disable      RE-ENABLE: rm /data/adb/alfa-disable
+# INSTALL: /data/adb/service.d/usbwifi-boot.sh  (chmod 755)
+# DISABLE: touch /data/adb/usbwifi-disable      RE-ENABLE: rm /data/adb/usbwifi-disable
 
-[ -f /data/adb/alfa-disable ] && exit 0
+[ -f /data/adb/usbwifi-disable ] && exit 0
 
 HOME_DIR=/data/data/com.termux/files/home
-WATCH="$HOME_DIR/alfa-watch.sh"
-LOG="$HOME_DIR/alfa-watch.log"
+WATCH="$HOME_DIR/usbwifi-watch.sh"
+LOG="$HOME_DIR/usbwifi-watch.log"
 
 (
   # 1. wait for boot to complete
@@ -38,7 +38,7 @@ LOG="$HOME_DIR/alfa-watch.log"
 
   # 3. small settle, then start the watcher (only if not already running)
   sleep 5
-  if ! pgrep -f alfa-watch.sh >/dev/null 2>&1; then
+  if ! pgrep -f usbwifi-watch.sh >/dev/null 2>&1; then
     nohup sh "$WATCH" > "$LOG" 2>&1 &
   fi
 ) &
