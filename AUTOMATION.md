@@ -144,11 +144,11 @@ su
 sh scripts/install.sh
 ```
 
-By default it pulls the prebuilt modules from release **`v2.1`** of
+By default it pulls the prebuilt modules from release **`v3.0`** of
 `markatsos/android-gki-usb-wifi`. Override any of these with env vars:
 
 ```
-REPO=youruser/yourrepo TAG=v2.1 MODS_ZIP=modules.zip sh scripts/install.sh
+REPO=youruser/yourrepo TAG=v3.0 MODS_ZIP=modules.zip sh scripts/install.sh
 ```
 
 `install.sh` downloads the modules zip (release asset, plain curl — no token),
