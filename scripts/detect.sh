@@ -48,9 +48,18 @@ kv "kernel_version" "$KVER"
 kv "commit_short"   "${KHASH:-<none found>}"
 kv "android_branch" "${KBRANCH:-<unknown>}"
 
-# guess the ACK branch (android13-5.15 style)
-MAJMIN="$(printf '%s' "$KVER" | cut -d. -f1,2)"   # 5.15
-ACK_BRANCH="${KBRANCH:-android13}-${MAJMIN}"
+# guess the ACK branch (android13-5.15 style) and flag pre-GKI kernels
+MAJMIN="$(printf '%s' "$KVER" | cut -d. -f1,2)"   # e.g. 5.15
+KMAJ="${MAJMIN%%.*}"; KMIN="${MAJMIN##*.}"
+IS_GKI=yes
+if [ "$KMAJ" -lt 5 ] 2>/dev/null; then IS_GKI=no; fi
+if [ "$KMAJ" -eq 5 ] 2>/dev/null && [ "$KMIN" -lt 10 ] 2>/dev/null; then IS_GKI=no; fi
+if [ -n "$KBRANCH" ]; then
+  ACK_BRANCH="${KBRANCH}-${MAJMIN}"
+else
+  ACK_BRANCH="unknown (no androidNN token in uname -r)"
+fi
+kv "gki_kernel"       "$IS_GKI  (GKI starts at 5.10; yours is $MAJMIN)"
 kv "ack_branch_guess" "$ACK_BRANCH"
 
 {
@@ -61,6 +70,7 @@ kv "ack_branch_guess" "$ACK_BRANCH"
   echo "ANDROID_BRANCH=${KBRANCH}"
   echo "ACK_BRANCH_GUESS=${ACK_BRANCH}"
   echo "KERNEL_GEN=${ACK_BRANCH}"
+  echo "IS_GKI=${IS_GKI}"
 } >> "$OUT"
 
 say ""
@@ -226,13 +236,24 @@ say ""
 # ------------------------------------------------------------- verdict
 say "=== VERDICT ==="
 BLOCK=0
-[ "$MODULES" = "n" ] && { say "BLOCKER: CONFIG_MODULES=n - kernel can't load modules at all."; BLOCK=1; }
+if [ "$IS_GKI" = "no" ]; then
+  say "NOT GKI: kernel $KVER predates the Generic Kernel Image (5.10+)."
+  say "  The automated workflow targets ACK/GKI kernels, so it cannot fetch"
+  say "  matching source for you. You are NOT out of options:"
+  say "   - First check if your kernel ALREADY supports the adapter:"
+  say "       plug it in, then run:  ip link    (look for wlan1)"
+  say "   - If you run a CUSTOM kernel, its source is usually published (GPL)."
+  say "     Build the driver as an external module against THAT source, or ask"
+  say "     its maintainer to enable it. Many 4.x pentest kernels already do."
+  BLOCK=1
+fi
+[ "$MODULES" = "n" ] && { say "BLOCKER: CONFIG_MODULES=n - kernel cannot load modules at all."; BLOCK=1; }
 [ "$SIG" = "y" ]     && { say "BLOCKER: MODULE_SIG_FORCE=y - unsigned modules will be rejected."; BLOCK=1; }
 if [ "$REF" = "yes" ] && [ "$COMMIT_OK" != "yes" ]; then
   COMMIT_OK=yes   # known-good reference: commit is public (verified 4ea0fcb5d130)
 fi
 [ "$COMMIT_OK" = "no" ] && [ -n "$KHASH" ] && say "WARNING: kernel commit not confirmed public - if the build's module_layout CRC differs from yours, you must locate matching source (vendor GPL drop)."
-[ -z "$KHASH" ] && say "WARNING: no git hash in uname -r - hard to match ACK source."
+[ -z "$KHASH" ] && say "NOTE: no git hash in uname -r (typical for custom kernels) - the exact source cannot be identified automatically."
 [ "$MODVER" = "y" ] && say "NOTE: MODVERSIONS=y - modules MUST be built from the exact commit (this is normal for GKI)."
 [ "$BTF" = "y" ] && say "NOTE: BTF=y - build must keep BTF enabled (workflow installs pahole)."
 [ "$LTOTHIN" = "y" ] && say "NOTE: thin LTO in use - set LTO thin in the workflow to match."
