@@ -131,6 +131,16 @@ jobs:
           fi
           clang/bin/clang --version
 
+      - name: Sanity-check workflow shell blocks
+        run: |
+          # Catch shell syntax errors in this workflow early (a bad line
+          # continuation used to fail 4 minutes in, after the clang download).
+          echo "checking driver case block syntax..."
+          sh -n .github/workflows/../../scripts/detect.sh && echo "detect.sh OK"
+          sh -n scripts/install.sh && echo "install.sh OK"
+          sh -n packaging/service.sh && echo "service.sh OK"
+          sh -n packaging/action.sh && echo "action.sh OK"
+
       - name: Configure
         working-directory: ks
         env:
@@ -168,8 +178,8 @@ jobs:
                 CONFIG_MT76x02_LIB=m CONFIG_MT76x02_USB=m \
                 CONFIG_MT76x0_COMMON=m CONFIG_MT76x0U=m >> arch/arm64/configs/gki_defconfig ;;
             mt7601u)
-              printf '%s\\n' \\
-                CONFIG_WLAN_VENDOR_MEDIATEK=y \\
+              printf '%s\n' \
+                CONFIG_WLAN_VENDOR_MEDIATEK=y \
                 CONFIG_MT7601U=m >> arch/arm64/configs/gki_defconfig ;;
             rt2800usb)
               printf '%s\n' \
