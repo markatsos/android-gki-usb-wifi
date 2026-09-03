@@ -27,7 +27,7 @@ on:
         required: true
         default: "full"
       driver:
-        description: "Driver: mt76x2u | mt76x0u | rt2800usb | ath9k_htc | rtl8xxxu | rtl88xxau_oot"
+        description: "Driver: mt76x2u | mt76x0u | mt7601u | rt2800usb | ath9k_htc | rtl8xxxu | rtl88xxau_oot"
         required: true
         default: "mt76x2u"
       oot_repo:
@@ -167,6 +167,10 @@ jobs:
                 CONFIG_MT76_CORE=m CONFIG_MT76_USB=m \
                 CONFIG_MT76x02_LIB=m CONFIG_MT76x02_USB=m \
                 CONFIG_MT76x0_COMMON=m CONFIG_MT76x0U=m >> arch/arm64/configs/gki_defconfig ;;
+            mt7601u)
+              printf '%s\\n' \\
+                CONFIG_WLAN_VENDOR_MEDIATEK=y \\
+                CONFIG_MT7601U=m >> arch/arm64/configs/gki_defconfig ;;
             rt2800usb)
               printf '%s\n' \
                 CONFIG_WLAN_VENDOR_RALINK=y \
@@ -264,7 +268,7 @@ jobs:
           # in-tree
           find ks/out -name "*.ko" \( \
             -name "mac80211.ko" -o -name "cfg80211.ko" -o \
-            -name "mt76*.ko" -o -name "rt2*.ko" -o -name "rt2800*.ko" -o \
+            -name "mt76*.ko" -o -name "mt7601u.ko" -o -name "rt2*.ko" -o -name "rt2800*.ko" -o \
             -name "ath*.ko" -o -name "rtl8xxxu.ko" \) -exec cp {} ko/ \; || true
           # out-of-tree (if built)
           find oot -name "*.ko" -exec cp {} ko/ \; 2>/dev/null || true
@@ -284,6 +288,7 @@ jobs:
           case "$DRIVER" in
             mt76x2u)  DRVNAME=mt76x2u;  LEAF=mt76x2u.ko;  FW="mediatek/mt7662.bin mediatek/mt7662_rom_patch.bin"; USBID="0e8d:7612" ;;
             mt76x0u)  DRVNAME=mt76x0u;  LEAF=mt76x0u.ko;  FW="mediatek/mt7610u.bin"; USBID="0e8d:7610" ;;
+            mt7601u)  DRVNAME=mt7601u;  LEAF=mt7601u.ko;  FW="mediatek/mt7601u.bin"; USBID="148f:7601" ;;
             rt2800usb) DRVNAME=rt2800usb; LEAF=rt2800usb.ko; FW=""; USBID="148f:5370" ;;
             ath9k_htc) DRVNAME=ath9k_htc; LEAF=ath9k_htc.ko; FW="ath9k_htc/htc_9271-1.4.0.fw ath9k_htc/htc_7010-1.4.0.fw"; USBID="0cf3:9271" ;;
             rtl8xxxu) DRVNAME=rtl8xxxu; LEAF=rtl8xxxu.ko; FW=""; USBID="0bda:8178" ;;

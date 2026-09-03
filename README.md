@@ -76,13 +76,16 @@ hardware-verified · OOT = out-of-tree, may not build on every kernel.
 |---|---|---|---|---|
 | `mt76x2u` | MT7612U / MT7662 | yes | `mt7662*.bin` | **tested** (AWUS036ACM) |
 | `mt76x0u` | MT7610U/7630U/7650U | yes | `mt7610u.bin` … | built |
+| `mt7601u` | MT7601U (2.4GHz) | yes | `mt7601u.bin` | built |
 | `rt2800usb` | RT5370/5372/3070/3072/2870/3572 | yes | none | built (no firmware needed) |
 | `ath9k_htc` | AR9271, AR7010 | yes | `htc_9271.fw`/`htc_7010.fw` | built (proven on this SoC in prior work) |
 | `rtl8xxxu` | RTL8188CU/EU, RTL8192CU/EU | yes | none | built |
 | `rtl88xxau_oot` | RTL8812AU/8814AU/8811AU/8821AU | **no** | in-driver | OOT |
 
-`detect.sh` recognizes ~50 USB IDs across these families and picks the driver +
-firmware automatically. If yours isn't listed it prints `unrecognized` — the
+`detect.sh` recognizes ~55 USB IDs across these families and picks the driver +
+firmware automatically. It also flags adapters that show up in **CD-ROM /
+driver-install mode** (e.g. `0bda:1a2b`) — those need `usb_modeswitch` before
+they present as Wi-Fi at all. If yours isn't listed it prints `unrecognized` — the
 adapter may still work; you'll just need to identify the chipset yourself.
 
 ### SoCs / devices

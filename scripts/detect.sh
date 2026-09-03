@@ -138,6 +138,14 @@ usb_hint() {
     0b05:17d2) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U (Asus USB-AC53)";;
     057c:8503) echo "mt76x2u|mt7662.bin,mt7662_rom_patch.bin|MT7612U (AVM FRITZ AC860)";;
     0e8d:7610) echo "mt76x0u|mt7610u.bin|MT7610U";;
+    # --- MediaTek MT7601U (separate in-tree driver, not part of mt76) ---
+    148f:7601) echo "mt7601u|mt7601u.bin|MT7601U (very common cheap 2.4GHz dongle)";;
+    148f:760a) echo "mt7601u|mt7601u.bin|MT7601U";;
+    148f:760c) echo "mt7601u|mt7601u.bin|MT7601U";;
+    2717:4106) echo "mt7601u|mt7601u.bin|MT7601U (Xiaomi)";;
+    # --- adapters that boot in CD-ROM/driver-install mode ---
+    0bda:1a2b) echo "usb_modeswitch|n/a|Realtek in CD-ROM mode - run usb_modeswitch first, then re-run detect";;
+    0bda:1f01) echo "usb_modeswitch|n/a|Realtek in CD-ROM mode - run usb_modeswitch first, then re-run detect";;
     148f:761a) echo "mt76x0u|mt7610u.bin|MT7610U (Ralink-branded)";;
     148f:760b) echo "mt76x0u|mt7610u.bin|MT7610U";;
     0e8d:7630) echo "mt76x0u|mt7610u.bin|MT7630U";;
@@ -195,7 +203,7 @@ for d in /sys/bus/usb/devices/*/idProduct; do
   desc=$(printf '%s' "$hint" | cut -d'|' -f3)
   # only report likely wifi (known ids, or has a wireless-ish interface)
   case "$id" in
-    0e8d:*|0bda:*|148f:*|0cf3:*|0846:*|0b05:*|057c:*|07d1:*|2001:*|2357:*|040d:*|13b1:*|083a:*|0e66:*|040d:*)
+    0e8d:*|0bda:*|148f:*|0cf3:*|0846:*|2717:*|0b05:*|057c:*|07d1:*|2001:*|2357:*|040d:*|13b1:*|083a:*|0e66:*|040d:*)
       FOUND="$id"
       USB_ID_FOUND="$id"
       CHIPSET_DESC="$desc"
@@ -267,6 +275,13 @@ case "${DRIVER:-}" in
     say "NOTE: RTL8188/8192 via in-tree rtl8xxxu. Monitor-mode/injection support varies by chip." ;;
   rt2800usb)
     say "NOTE: rt2800usb has good monitor/injection support and needs no firmware file." ;;
+  mt7601u)
+    say "NOTE: MT7601U uses the in-tree 'mt7601u' driver (separate from the mt76 stack)."
+    say "      2.4GHz only. Monitor mode works; injection support is limited on some units." ;;
+  usb_modeswitch)
+    say "NOTE: this adapter is in CD-ROM / driver-install mode, not Wi-Fi mode yet."
+    say "      Switch it first, e.g.:  usb_modeswitch -KW -v <vid> -p <pid>"
+    say "      (or 'eject /dev/sr0' on some units), then re-run detect.sh." ;;
 esac
 
 if [ "$REF" = "yes" ]; then
